@@ -1,0 +1,131 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for authentication and identification",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user ID matching auth.uid"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Account creation timestamp"
+        }
+      },
+      "required": ["id", "email", "createdAt"]
+    },
+    "ShoppingItem": {
+      "title": "ShoppingItem",
+      "description": "Synchronized shopping list item shared across devices",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the shopping item"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the item"
+        },
+        "category": {
+          "type": "string",
+          "description": "Rarity or category tag"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pendente", "no_carrinho"],
+          "description": "Status of the item in the list"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity needed"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement"
+        },
+        "unitPrice": {
+          "type": "number",
+          "description": "Price per unit if specified"
+        },
+        "packageInfo": {
+          "type": "string",
+          "description": "Package or volume details"
+        },
+        "brandOrPreference": {
+          "type": "string",
+          "description": "Brand preference or notes"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Associated image URL"
+        },
+        "nameList": {
+          "type": "array",
+          "description": "List of associated names and aliases"
+        },
+        "selected": {
+          "type": "boolean",
+          "description": "Whether selected in current session"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of the user who created this item"
+        },
+        "createdByName": {
+          "type": "string",
+          "description": "Display name of the creator"
+        },
+        "collectedBy": {
+          "type": "string",
+          "description": "UID or identifier of the user who collected this item"
+        },
+        "collectedByName": {
+          "type": "string",
+          "description": "Display name of the member who collected this item"
+        },
+        "collectedAt": {
+          "type": "string",
+          "description": "Timestamp when this item was collected"
+        }
+      },
+      "required": ["id", "name", "category", "status", "quantity", "unit", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/shopping_items/{itemId}": {
+      "schema": "ShoppingItem",
+      "description": "Synchronized shopping items accessible by authenticated household users"
+    },
+    "/system_config/{configId}": {
+      "description": "System and administrative authentication configuration"
+    }
+  }
+}
