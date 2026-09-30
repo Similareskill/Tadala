@@ -101,11 +101,6 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
       }
     }
 
-    if (!isAdmin) {
-      onRequireAdmin?.('alterar o nome ativo deste produto');
-      return;
-    }
-
     if (onUpdateItem) {
       onUpdateItem(item.id, patch);
     }
@@ -282,14 +277,8 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
           <input
             type="checkbox"
             checked={!!item.selected}
-            onChange={() => {
-              if (!isAdmin) {
-                onRequireAdmin?.('selecionar produtos para ações em lote');
-                return;
-              }
-              onToggleSelect(item.id);
-            }}
-            title={isAdmin ? "Selecionar para ações em massa" : "Apenas o Administrador pode selecionar itens"}
+            onChange={() => onToggleSelect(item.id)}
+            title="Selecionar este produto"
             className="w-4 h-4 rounded border-[#cbd5e1] text-[#2a14b4] focus:ring-0 cursor-pointer accent-[#2a14b4]"
           />
 

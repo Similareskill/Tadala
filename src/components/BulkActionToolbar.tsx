@@ -38,13 +38,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             ref={(input) => {
               if (input) input.indeterminate = someSelected && !allSelected;
             }}
-            onChange={() => {
-              if (!isAdmin) {
-                onRequireAdmin?.('selecionar todos os itens');
-                return;
-              }
-              onToggleSelectAll();
-            }}
+            onChange={onToggleSelectAll}
             className="w-4 h-4 rounded border-[#cbd5e1] text-[#2a14b4] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#2a14b4]"
           />
           <span>Selecionar todos</span>

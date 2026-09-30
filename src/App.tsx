@@ -394,14 +394,12 @@ export default function App() {
   };
 
   const handleToggleSelect = (id: string) => {
-    if (!requireAdmin('Apenas o Administrador pode selecionar itens para ações.')) return;
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item))
     );
   };
 
   const handleToggleSelectAll = () => {
-    if (!requireAdmin('Apenas o Administrador pode selecionar itens.')) return;
     const targetState = !allVisibleSelected;
     setItems((prev) =>
       prev.map((item) => {
@@ -576,7 +574,17 @@ export default function App() {
 
   // Update item properties (e.g. from Lista de Nomes, image, rarity)
   const handleUpdateItem = async (id: string, patch: Partial<ShoppingItem>) => {
-    if (!requireAdmin('Apenas o Administrador pode modificar detalhes dos itens e marcadores.')) return;
+    const isJustSelectingName =
+      patch.name &&
+      Object.keys(patch).every((k) =>
+        ['name', 'nameList', 'imageUrl', 'category'].includes(k)
+      );
+    if (
+      !isJustSelectingName &&
+      !requireAdmin('Apenas o Administrador pode modificar detalhes dos itens e marcadores.')
+    ) {
+      return;
+    }
     let updatedItem: ShoppingItem | null = null;
     setItems((prev) =>
       prev.map((i) => {
