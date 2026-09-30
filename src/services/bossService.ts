@@ -262,6 +262,18 @@ export const bossService = {
     }
   },
 
+  // Delete a specific Check-in
+  async deleteCheckin(checkinId: string): Promise<void> {
+    const current = getStoredLocalCheckins().filter((c) => c.id !== checkinId);
+    saveLocalCheckins(current);
+
+    try {
+      await deleteDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId));
+    } catch (e) {
+      console.warn('Could not delete checkin in firestore:', e);
+    }
+  },
+
   // Helper to determine the check-in window (manual or fallback)
   getCheckinWindowStatus(
     scheduledTime: string,

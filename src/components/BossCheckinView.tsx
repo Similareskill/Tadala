@@ -258,10 +258,6 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
   // Handle delete boss
   const handleDeleteBoss = (id: string, name: string) => {
-    if (!isAdmin) {
-      onRequireAdmin?.('excluir eventos de Boss');
-      return;
-    }
     setBossToDelete({ id, name });
   };
 
@@ -269,8 +265,35 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
     if (!bossToDelete) return;
     await bossService.deleteBossEvent(bossToDelete.id);
     playHapticSound('delete');
-    onShowToast(`Boss "${bossToDelete.name}" removido.`);
+    onShowToast(`Boss "${bossToDelete.name}" removido com sucesso.`);
     setBossToDelete(null);
+  };
+
+  // Check-in removal state & handler
+  const [checkinToDelete, setCheckinToDelete] = useState<{
+    id: string;
+    bossName: string;
+    userName: string;
+  } | null>(null);
+
+  const handleRemoveCheckin = (
+    checkinId: string,
+    bossName: string,
+    userName?: string
+  ) => {
+    setCheckinToDelete({
+      id: checkinId,
+      bossName,
+      userName: userName || visitorName || 'Jogador',
+    });
+  };
+
+  const handleConfirmDeleteCheckin = async () => {
+    if (!checkinToDelete) return;
+    await bossService.deleteCheckin(checkinToDelete.id);
+    playHapticSound('delete');
+    onShowToast(`Check-in de "${checkinToDelete.userName}" removido com sucesso.`);
+    setCheckinToDelete(null);
   };
 
   // Helper for category badge colors
@@ -561,6 +584,9 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
               bossCheckins.some(
                 (c) => c.userName.toLowerCase() === visitorName.toLowerCase()
               );
+            const myCheckinForBoss = visitorName
+              ? bossCheckins.find((c) => c.userName.toLowerCase() === visitorName.toLowerCase())
+              : null;
 
             const scheduledDate = new Date(boss.scheduledTime);
             const formattedTime = scheduledDate.toLocaleTimeString('pt-BR', {
@@ -631,12 +657,20 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                       </h3>
                     </div>
 
-                    {/* Points Badge */}
-                    <div className="shrink-0 text-right">
+                    {/* Points Badge & Quick Delete Button */}
+                    <div className="shrink-0 flex items-center gap-1.5">
                       <div className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 font-black text-sm shadow-2xs">
                         <Award className="w-4 h-4 text-amber-600" />
                         <span>+{boss.points} pts</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBoss(boss.id, boss.bossName)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-200 active:scale-90"
+                        title={`Remover este Boss "${boss.bossName}"`}
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-500" />
+                      </button>
                     </div>
                   </div>
 
@@ -716,7 +750,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                         {bossCheckins.map((chk) => (
                           <span
                             key={chk.id}
-                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${
+                            className={`inline-flex items-center gap-1 text-[11px] font-semibold pl-2 pr-1.5 py-0.5 rounded-lg border ${
                               visitorName &&
                               chk.userName.toLowerCase() === visitorName.toLowerCase()
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
@@ -725,6 +759,14 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                           >
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             <span>{chk.userName}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCheckin(chk.id, boss.bossName, chk.userName)}
+                              className="ml-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 p-0.5 rounded transition-colors cursor-pointer"
+                              title={`Remover check-in de ${chk.userName}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </span>
                         ))}
                       </div>
@@ -732,25 +774,37 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                   </div>
                 </div>
 
-                {/* Bottom Actions: Check-in button + Admin tools */}
-                <div className="pt-3 border-t border-[#f1f5f9] flex items-center justify-between gap-2">
+                {/* Bottom Actions: Check-in button + Remover Boss */}
+                <div className="pt-3 border-t border-[#f1f5f9] flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1">
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteBoss(boss.id, boss.bossName)}
-                        className="p-2 text-[#94a3b8] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                        title="Excluir agendamento deste Boss (Admin)"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBoss(boss.id, boss.bossName)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-xl transition-all cursor-pointer active:scale-95 shadow-2xs"
+                      title={`Remover agendamento de ${boss.bossName}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remover Boss</span>
+                    </button>
                   </div>
 
                   {userAlreadyCheckedIn ? (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Check-in Confirmado (+{boss.points} pts)</span>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Confirmado (+{boss.points} pts)</span>
+                      </div>
+                      {myCheckinForBoss && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCheckin(myCheckinForBoss.id, boss.bossName, myCheckinForBoss.userName)}
+                          className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 rounded-xl transition-all cursor-pointer active:scale-95 shadow-2xs"
+                          title="Remover meu check-in deste Boss"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Remover Check-in</span>
+                        </button>
+                      )}
                     </div>
                   ) : status.isOpen ? (
                     <button
@@ -1080,11 +1134,11 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                     Atalhos de duração:
                   </span>
                   {[
-                    { label: '30 min', mins: 30 },
-                    { label: '1 hora', mins: 60 },
-                    { label: '1h 30m', mins: 90 },
-                    { label: '2 horas', mins: 120 },
-                    { label: '4 horas', mins: 240 },
+                    { label: '5min', mins: 5 },
+                    { label: '10min', mins: 10 },
+                    { label: '15min', mins: 15 },
+                    { label: '20min', mins: 20 },
+                    { label: '25min', mins: 25 },
                   ].map((dur) => (
                     <button
                       key={dur.label}
@@ -1098,7 +1152,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                             .slice(0, 16)
                         );
                       }}
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white hover:bg-[#eaedff] text-[#334155] hover:text-[#2a14b4] border border-[#cbd5e1] transition-all cursor-pointer shadow-2xs"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-[#eaedff] text-[#334155] hover:text-[#2a14b4] border border-[#cbd5e1] transition-all cursor-pointer shadow-2xs active:scale-95"
                     >
                       +{dur.label}
                     </button>
@@ -1127,7 +1181,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
           </div>
         </div>
       )}
-      {/* MODAL 3: Delete Boss Confirmation (Admin) */}
+      {/* MODAL 3: Delete Boss Confirmation */}
       {bossToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
           <div
@@ -1137,7 +1191,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
             <div className="p-4 border-b border-[#f1f5f9] flex items-center justify-between bg-rose-600 text-white">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-4 h-4" />
-                <h3 className="font-extrabold text-sm">Remover Agendamento?</h3>
+                <h3 className="font-extrabold text-sm">Remover Agendamento do Boss?</h3>
               </div>
               <button
                 type="button"
@@ -1166,7 +1220,57 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                   onClick={handleConfirmDeleteBoss}
                   className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
-                  Sim, Remover
+                  Sim, Remover Boss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Delete Check-in Confirmation */}
+      {checkinToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-[#f1f5f9] flex items-center justify-between bg-rose-600 text-white">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                <h3 className="font-extrabold text-sm">Remover Check-in?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCheckinToDelete(null)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-[#334155] leading-relaxed">
+                Tem certeza que deseja remover o check-in de <strong>"{checkinToDelete.userName}"</strong> no Boss <strong>"{checkinToDelete.bossName}"</strong>?
+              </p>
+              <p className="text-[11px] text-[#64748b]">
+                Os pontos serão recalculados e removidos do ranking.
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#f1f5f9]">
+                <button
+                  type="button"
+                  onClick={() => setCheckinToDelete(null)}
+                  className="px-3.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteCheckin}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  Sim, Remover Check-in
                 </button>
               </div>
             </div>

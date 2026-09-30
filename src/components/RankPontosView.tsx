@@ -17,6 +17,7 @@ import {
   User,
   AlertTriangle,
   X,
+  Trash2,
 } from 'lucide-react';
 import { BossCheckin, UserRankEntry } from '../types/shopping';
 import { bossService } from '../services/bossService';
@@ -96,6 +97,42 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
     } finally {
       setIsResetting(false);
       setIsResetModalOpen(false);
+    }
+  };
+
+  // Delete Check-in from confirmed presences (Admin)
+  const [checkinToDelete, setCheckinToDelete] = useState<{
+    id: string;
+    userName: string;
+    bossName: string;
+    points: number;
+  } | null>(null);
+  const [isDeletingCheckin, setIsDeletingCheckin] = useState(false);
+
+  const handlePromptDeleteCheckin = (chk: BossCheckin, userName: string) => {
+    setCheckinToDelete({
+      id: chk.id,
+      userName,
+      bossName: chk.bossName,
+      points: chk.points,
+    });
+  };
+
+  const handleConfirmDeleteCheckin = async () => {
+    if (!checkinToDelete) return;
+    try {
+      setIsDeletingCheckin(true);
+      await bossService.deleteCheckin(checkinToDelete.id);
+      playHapticSound('delete');
+      onShowToast(
+        `Presença de "${checkinToDelete.userName}" no Boss "${checkinToDelete.bossName}" removida com sucesso (-${checkinToDelete.points} pts).`
+      );
+      setCheckinToDelete(null);
+    } catch (err) {
+      console.error('Erro ao remover check-in:', err);
+      onShowToast('Erro ao remover check-in do banco de dados.');
+    } finally {
+      setIsDeletingCheckin(false);
     }
   };
 
@@ -457,24 +494,26 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
 
                   {/* Expanded: History of check-ins for this person */}
                   {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-[#e2e8f0]/60 pl-11 pr-2 animate-in fade-in duration-150">
-                      <div className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider mb-2">
-                        Presenças Confirmadas de {entry.userName}:
+                    <div className="mt-3 pt-3 border-t border-[#e2e8f0]/60 pl-3 sm:pl-11 pr-2 animate-in fade-in duration-150">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2.5">
+                        <div className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider">
+                          Presenças Confirmadas ({entry.checkins.length}):
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         {entry.checkins.map((chk) => (
                           <div
                             key={chk.id}
-                            className="flex items-center justify-between text-xs bg-white rounded-xl p-2 px-3 border border-[#e2e8f0]"
+                            className="flex items-center justify-between text-xs bg-white rounded-xl p-2 px-3 border border-[#e2e8f0] hover:border-[#cbd5e1] transition-all gap-2"
                           >
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="font-bold text-[#131b2e]">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span className="font-bold text-[#131b2e] truncate">
                                 {chk.bossName}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[11px] text-[#64748b]">
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <span className="text-[11px] text-[#64748b] hidden sm:inline">
                                 {new Date(chk.checkedInAt).toLocaleString('pt-BR', {
                                   day: '2-digit',
                                   month: 'short',
@@ -482,9 +521,20 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
                                   minute: '2-digit',
                                 })}
                               </span>
-                              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md text-[11px]">
                                 +{chk.points} pts
                               </span>
+
+                              {/* Remover Check-in */}
+                              <button
+                                type="button"
+                                onClick={() => handlePromptDeleteCheckin(chk, entry.userName)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
+                                title={`Remover presença de ${entry.userName} no Boss ${chk.bossName}`}
+                              >
+                                <Trash2 className="w-3 h-3 text-rose-600" />
+                                <span>Remover</span>
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -555,6 +605,62 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>{isResetting ? 'Zerando...' : 'Sim, Zerar Temporada'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Check-in Confirmation Modal (Admin) */}
+      {checkinToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-[#f1f5f9] flex items-center justify-between bg-rose-600 text-white">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                <h3 className="font-extrabold text-sm">Remover Presença Confirmada?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCheckinToDelete(null)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-[#334155] leading-relaxed">
+                Tem certeza que deseja remover o check-in de{' '}
+                <strong className="text-[#131b2e] font-extrabold">{checkinToDelete.userName}</strong> no Boss{' '}
+                <strong className="text-[#131b2e] font-extrabold">"{checkinToDelete.bossName}"</strong>?
+              </p>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-900 font-medium">
+                Serão subtraídos <strong>+{checkinToDelete.points} pontos</strong> deste jogador no Rank de Pontos.
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#f1f5f9]">
+                <button
+                  type="button"
+                  onClick={() => setCheckinToDelete(null)}
+                  disabled={isDeletingCheckin}
+                  className="px-3.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteCheckin}
+                  disabled={isDeletingCheckin}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isDeletingCheckin ? 'Removendo...' : 'Sim, Remover Check-in'}</span>
                 </button>
               </div>
             </div>
