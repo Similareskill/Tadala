@@ -122,26 +122,36 @@ function saveLocalCheckins(checkins: BossCheckin[]) {
   } catch {}
 }
 
+let cachedBossEvents: BossEvent[] = [];
+let cachedCheckins: BossCheckin[] = [];
+
 export const bossService = {
   // Subscribe to Boss Events
   subscribeBossEvents(
     onUpdate: (events: BossEvent[]) => void,
     onError?: (err: Error) => void
   ): Unsubscribe {
-    // Initial emit from local
-    onUpdate(getStoredLocalBosses());
+    // Initial emit from local / cache
+    const initial = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+    onUpdate(initial);
 
     const colRef = collection(db, BOSS_EVENTS_COLLECTION);
     return onSnapshot(
       colRef,
       (snapshot) => {
         if (snapshot.empty) {
-          // If Firestore is empty, seed initial bosses
+          // If first run and completely empty, seed initial bosses once
           const local = getStoredLocalBosses();
-          onUpdate(local);
-          local.forEach((b) => {
-            setDoc(doc(db, BOSS_EVENTS_COLLECTION, b.id), b).catch(() => {});
-          });
+          if (local.length > 0 && cachedBossEvents.length === 0) {
+            onUpdate(local);
+            local.forEach((b) => {
+              setDoc(doc(db, BOSS_EVENTS_COLLECTION, b.id), b).catch(() => {});
+            });
+            return;
+          }
+          cachedBossEvents = [];
+          saveLocalBosses([]);
+          onUpdate([]);
           return;
         }
 
@@ -156,12 +166,13 @@ export const bossService = {
             new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
         );
 
+        cachedBossEvents = events;
         saveLocalBosses(events);
         onUpdate(events);
       },
       (error) => {
         console.warn('Firestore boss_events subscription fallback:', error);
-        onUpdate(getStoredLocalBosses());
+        onUpdate(cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses());
         if (onError) onError(error);
       }
     );
@@ -172,30 +183,15 @@ export const bossService = {
     onUpdate: (checkins: BossCheckin[]) => void,
     onError?: (err: Error) => void
   ): Unsubscribe {
-    // Ensure one-time purge of initial demo check-ins so rank is freshly zeroed
-    const PURGE_FLAG = 'craft_rank_purged_mock_zeroed_v1';
-    try {
-      if (localStorage.getItem(PURGE_FLAG) !== 'true') {
-        localStorage.setItem(PURGE_FLAG, 'true');
-        saveLocalCheckins([]);
-        const colRef = collection(db, BOSS_CHECKINS_COLLECTION);
-        getDocs(colRef).then((snap) => {
-          if (!snap.empty) {
-            const batch = writeBatch(db);
-            snap.forEach((docSnap) => batch.delete(docSnap.ref));
-            batch.commit().catch(() => {});
-          }
-        }).catch(() => {});
-      }
-    } catch {}
-
-    onUpdate(getStoredLocalCheckins());
+    // Initial emit from cache or local
+    onUpdate(cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
 
     const colRef = collection(db, BOSS_CHECKINS_COLLECTION);
     return onSnapshot(
       colRef,
       (snapshot) => {
         if (snapshot.empty) {
+          cachedCheckins = [];
           saveLocalCheckins([]);
           onUpdate([]);
           return;
@@ -212,12 +208,13 @@ export const bossService = {
             new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime()
         );
 
+        cachedCheckins = checkins;
         saveLocalCheckins(checkins);
         onUpdate(checkins);
       },
       (error) => {
         console.warn('Firestore boss_checkins subscription fallback:', error);
-        onUpdate(getStoredLocalCheckins());
+        onUpdate(cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
         if (onError) onError(error);
       }
     );
@@ -342,8 +339,8 @@ export const bossService = {
     }
 
     // Check if user already confirmed for this boss
-    const currentCheckins = getStoredLocalCheckins();
-    const alreadyDone = currentCheckins.some(
+    const activeCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const alreadyDone = activeCheckins.some(
       (c) =>
         c.bossId === boss.id &&
         c.userName.toLowerCase() === trimmedName.toLowerCase()
@@ -370,7 +367,7 @@ export const bossService = {
     try {
       localStorage.removeItem(SEASON_RESET_KEY);
     } catch {}
-    saveLocalCheckins([newCheckin, ...currentCheckins]);
+    saveLocalCheckins([newCheckin, ...activeCheckins]);
 
     // Save to Firestore
     try {

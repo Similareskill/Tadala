@@ -124,8 +124,17 @@
       "schema": "ShoppingItem",
       "description": "Synchronized shopping items accessible by authenticated household users"
     },
+    "/shopping_history/{historyId}": {
+      "description": "Archived shopping and craft history entries"
+    },
     "/system_config/{configId}": {
-      "description": "System and administrative authentication configuration"
+      "description": "System configuration, admin authentication, and app settings"
+    },
+    "/boss_events/{eventId}": {
+      "description": "Boss events scheduled for guild and global members"
+    },
+    "/boss_checkins/{checkinId}": {
+      "description": "Boss check-ins and attendance records contributing to the Points Rank"
     }
   }
 }

@@ -26,7 +26,7 @@ import { ImportListModal } from './components/ImportListModal';
 import { AuthModal } from './components/AuthModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { ShareModal } from './components/ShareModal';
-import { authService, itemsService } from './services/firebase';
+import { authService, itemsService, settingsService, historyService } from './services/firebase';
 import { bossService } from './services/bossService';
 import { adminAuthService } from './services/adminAuth';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -210,18 +210,34 @@ export default function App() {
     // Seed initial items if Firestore collection is empty
     itemsService.seedInitialIfEmpty(INITIAL_ITEMS);
 
-    const unsub = itemsService.subscribe(
+    const unsubItems = itemsService.subscribe(
       (firestoreItems) => {
-        if (firestoreItems && firestoreItems.length > 0) {
-          setItems(firestoreItems);
-        }
+        setItems((prevLocal) => {
+          const selectedMap = new Set(prevLocal.filter((i) => i.selected).map((i) => i.id));
+          return firestoreItems.map((fi) => ({
+            ...fi,
+            selected: selectedMap.has(fi.id),
+          }));
+        });
       },
       (err) => {
-        console.warn('Real-time sync notice:', err);
+        console.warn('Real-time items sync notice:', err);
       }
     );
 
-    return () => unsub();
+    const unsubSettings = settingsService.subscribe((remoteSettings) => {
+      setSettings(remoteSettings);
+    });
+
+    const unsubHistory = historyService.subscribe((remoteHistory) => {
+      setHistory(remoteHistory);
+    });
+
+    return () => {
+      unsubItems();
+      unsubSettings();
+      unsubHistory();
+    };
   }, []);
 
   // Boss Check-in and Rank Real-time Subscriptions
@@ -668,7 +684,7 @@ export default function App() {
   };
 
   // Finalize shopping run: archive in history
-  const handleFinishShopping = () => {
+  const handleFinishShopping = async () => {
     if (!requireAdmin('Apenas o Administrador pode finalizar compras e arquivar no histórico.')) return;
     if (cartItems.length === 0) return;
 
@@ -683,14 +699,21 @@ export default function App() {
     };
 
     setHistory((prev) => [newHistoryEntry, ...prev]);
-    // remove collected items or reset them
+    const collectedIds = cartItems.map((i) => i.id);
     setItems((prev) => prev.filter((i) => i.status !== 'no_carrinho'));
     showToast('Compra finalizada e arquivada no Histórico!');
     setCurrentTab('historico');
+
+    try {
+      await historyService.addEntry(newHistoryEntry);
+      await itemsService.deleteMultipleItems(collectedIds);
+    } catch (err) {
+      console.warn('Sync error finalizing shopping:', err);
+    }
   };
 
   // Restore items from history back into current list
-  const handleRestoreItems = (historyItems: ShoppingItem[]) => {
+  const handleRestoreItems = async (historyItems: ShoppingItem[]) => {
     if (!requireAdmin('Apenas o Administrador pode restaurar itens do histórico para a lista.')) return;
     playHapticSound('toggle');
     const newItems = historyItems.map((hi) => ({
@@ -704,30 +727,44 @@ export default function App() {
     setItems((prev) => [...newItems, ...prev]);
     showToast(`${newItems.length} itens adicionados de volta à lista ativa`);
     setCurrentTab('lista');
+
+    try {
+      await itemsService.syncAllItems(newItems, false);
+    } catch (err) {
+      console.warn('Sync error restoring items:', err);
+    }
   };
 
-  const handleDeleteHistoryEntry = (id: string) => {
+  const handleDeleteHistoryEntry = async (id: string) => {
     if (!requireAdmin('Apenas o Administrador pode excluir registros do histórico.')) return;
     setHistory((prev) => prev.filter((h) => h.id !== id));
     showToast('Registro de histórico excluído');
+
+    try {
+      await historyService.deleteEntry(id);
+    } catch (err) {
+      console.warn('Sync error deleting history:', err);
+    }
   };
 
   // Import a copy of list items (from JSON backup, history, or text)
-  const handleImportItems = (newItems: ShoppingItem[], replace: boolean) => {
+  const handleImportItems = async (newItems: ShoppingItem[], replace: boolean) => {
     if (!requireAdmin('Apenas o Administrador pode importar ou substituir dados da lista.')) return;
     playHapticSound('toggle');
     if (replace) {
       setItems(newItems);
       showToast(`${newItems.length} itens importados (lista substituída)!`);
+      await itemsService.syncAllItems(newItems, true);
     } else {
       setItems((prev) => [...newItems, ...prev]);
       showToast(`${newItems.length} itens adicionados à lista atual!`);
+      await itemsService.syncAllItems(newItems, false);
     }
     setCurrentTab('lista');
   };
 
   // Save a snapshot copy of current list to history
-  const handleSaveCopyToHistory = () => {
+  const handleSaveCopyToHistory = async () => {
     if (!requireAdmin('Apenas o Administrador pode salvar cópias da lista no histórico.')) return;
     if (items.length === 0) {
       showToast('A lista está vazia para salvar uma cópia.');
@@ -753,10 +790,16 @@ export default function App() {
 
     setHistory((prev) => [newEntry, ...prev]);
     showToast(`Cópia da lista guardada no Histórico! (${items.length} itens)`);
+
+    try {
+      await historyService.addEntry(newEntry);
+    } catch (err) {
+      console.warn('Sync error saving copy:', err);
+    }
   };
 
   // Reset to initial demo data from screenshot
-  const handleResetDemoData = () => {
+  const handleResetDemoData = async () => {
     if (!requireAdmin('Apenas o Administrador pode restaurar configurações ou dados de demonstração.')) return;
     playHapticSound('toggle');
     setItems(INITIAL_ITEMS);
@@ -764,19 +807,38 @@ export default function App() {
     setHistory(INITIAL_HISTORY);
     showToast('Dados restaurados com base no ecrã de demonstração');
     setCurrentTab('lista');
+
+    try {
+      await itemsService.syncAllItems(INITIAL_ITEMS, true);
+      await settingsService.saveSettings(INITIAL_SETTINGS);
+    } catch (err) {
+      console.warn('Sync error resetting data:', err);
+    }
   };
 
-  const handleClearAllItems = () => {
+  const handleClearAllItems = async () => {
     if (!requireAdmin('Apenas o Administrador pode apagar todos os itens da lista.')) return;
     playHapticSound('delete');
     setItems([]);
     showToast('Todos os itens foram removidos');
+
+    try {
+      await itemsService.clearAllItems();
+    } catch (err) {
+      console.warn('Sync error clearing items:', err);
+    }
   };
 
-  const handleUpdateSettings = (newSettings: AppSettings) => {
+  const handleUpdateSettings = async (newSettings: AppSettings) => {
     if (!requireAdmin('Apenas o Administrador pode modificar as configurações.')) return;
     setSettings(newSettings);
     showToast('Configurações atualizadas com sucesso!');
+
+    try {
+      await settingsService.saveSettings(newSettings);
+    } catch (err) {
+      console.warn('Sync error updating settings:', err);
+    }
   };
 
   const handleSignOut = async () => {

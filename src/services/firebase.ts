@@ -24,7 +24,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { ShoppingItem } from '../types/shopping';
+import { ShoppingItem, AppSettings, ShoppingHistoryEntry } from '../types/shopping';
 
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -184,6 +184,41 @@ export const itemsService = {
     await batch.commit();
   },
 
+  async clearAllItems(): Promise<void> {
+    try {
+      const colRef = collection(db, ITEMS_COLLECTION);
+      const snapshot = await getDocs(colRef);
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) {
+      console.warn('Error clearing items in Firestore:', e);
+    }
+  },
+
+  async syncAllItems(newItems: ShoppingItem[], replace: boolean = false): Promise<void> {
+    try {
+      if (replace) {
+        await this.clearAllItems();
+      }
+      if (newItems.length === 0) return;
+      const batch = writeBatch(db);
+      for (const item of newItems) {
+        const docRef = doc(db, ITEMS_COLLECTION, item.id);
+        const cleanData: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(item)) {
+          if (v !== undefined) cleanData[k] = v;
+        }
+        batch.set(docRef, cleanData, { merge: true });
+      }
+      await batch.commit();
+    } catch (e) {
+      console.warn('Error syncing all items in Firestore:', e);
+    }
+  },
+
   async seedInitialIfEmpty(defaultItems: ShoppingItem[]): Promise<void> {
     try {
       const colRef = collection(db, ITEMS_COLLECTION);
@@ -202,6 +237,85 @@ export const itemsService = {
       }
     } catch (e) {
       console.warn('Could not seed initial items:', e);
+    }
+  },
+};
+
+// Settings Service for real-time multi-device sync
+export const SETTINGS_COLLECTION = 'system_config';
+export const SETTINGS_DOC_ID = 'app_settings';
+
+export const settingsService = {
+  subscribe(
+    onUpdate: (settings: AppSettings) => void,
+    onError?: (err: Error) => void
+  ): Unsubscribe {
+    const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
+    return onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          onUpdate(snapshot.data() as AppSettings);
+        }
+      },
+      (err) => {
+        console.warn('Settings subscription notice:', err);
+        if (onError) onError(err);
+      }
+    );
+  },
+
+  async saveSettings(settings: AppSettings): Promise<void> {
+    try {
+      const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
+      await setDoc(docRef, settings, { merge: true });
+    } catch (e) {
+      console.warn('Could not save settings to Firestore:', e);
+    }
+  },
+};
+
+// History Service for real-time multi-device sync
+export const HISTORY_COLLECTION = 'shopping_history';
+
+export const historyService = {
+  subscribe(
+    onUpdate: (history: ShoppingHistoryEntry[]) => void,
+    onError?: (err: Error) => void
+  ): Unsubscribe {
+    const colRef = collection(db, HISTORY_COLLECTION);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        const list: ShoppingHistoryEntry[] = [];
+        snapshot.forEach((d) => {
+          list.push({ ...(d.data() as ShoppingHistoryEntry), id: d.id });
+        });
+        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        onUpdate(list);
+      },
+      (err) => {
+        console.warn('History subscription notice:', err);
+        if (onError) onError(err);
+      }
+    );
+  },
+
+  async addEntry(entry: ShoppingHistoryEntry): Promise<void> {
+    try {
+      const docRef = doc(db, HISTORY_COLLECTION, entry.id);
+      await setDoc(docRef, entry);
+    } catch (e) {
+      console.warn('Could not add history entry to Firestore:', e);
+    }
+  },
+
+  async deleteEntry(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, HISTORY_COLLECTION, id);
+      await deleteDoc(docRef);
+    } catch (e) {
+      console.warn('Could not delete history entry in Firestore:', e);
     }
   },
 };

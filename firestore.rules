@@ -26,6 +26,11 @@ service cloud.firestore {
       allow create, update, delete: if true;
     }
 
+    // Shared shopping history records
+    match /shopping_history/{historyId} {
+      allow read, write: if true;
+    }
+
     // Household members collection for shared member tags across devices
     match /household_members/{memberId} {
       allow read, write: if true;
