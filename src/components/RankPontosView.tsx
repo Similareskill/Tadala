@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   X,
   Trash2,
+  Lock,
+  Shield,
 } from 'lucide-react';
 import { BossCheckin, UserRankEntry } from '../types/shopping';
 import { bossService } from '../services/bossService';
@@ -80,12 +82,20 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
-  // Reset Season Checkins
+  // Reset Season Checkins (Admin only)
   const handleOpenResetModal = () => {
+    if (!isAdmin) {
+      onRequireAdmin?.('zerar o Rank de Pontos da guilda');
+      return;
+    }
     setIsResetModalOpen(true);
   };
 
   const handleConfirmResetSeason = async () => {
+    if (!isAdmin) {
+      onRequireAdmin?.('zerar o Rank de Pontos da guilda');
+      return;
+    }
     try {
       setIsResetting(true);
       await bossService.resetAllCheckins();
@@ -100,7 +110,7 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
     }
   };
 
-  // Delete Check-in from confirmed presences (Admin)
+  // Delete Check-in from confirmed presences (Admin only)
   const [checkinToDelete, setCheckinToDelete] = useState<{
     id: string;
     userName: string;
@@ -110,6 +120,10 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
   const [isDeletingCheckin, setIsDeletingCheckin] = useState(false);
 
   const handlePromptDeleteCheckin = (chk: BossCheckin, userName: string) => {
+    if (!isAdmin) {
+      onRequireAdmin?.('remover o check-in das presenças confirmadas no Rank');
+      return;
+    }
     setCheckinToDelete({
       id: chk.id,
       userName,
@@ -119,6 +133,10 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
   };
 
   const handleConfirmDeleteCheckin = async () => {
+    if (!isAdmin) {
+      onRequireAdmin?.('remover o check-in das presenças confirmadas no Rank');
+      return;
+    }
     if (!checkinToDelete) return;
     try {
       setIsDeletingCheckin(true);
@@ -159,6 +177,17 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
               <Trophy className="w-3.5 h-3.5 text-amber-600" />
               Classificação Geral
             </span>
+            {!isAdmin ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                <Lock className="w-3 h-3 text-slate-500" />
+                Modo Leitura
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                <Shield className="w-3 h-3 text-rose-600" />
+                Painel Admin
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#64748b] mt-1 max-w-2xl">
             Tabela com o <strong>total de pontos</strong> e o <strong>nome de cada pessoa</strong>, somados
@@ -195,15 +224,27 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={handleOpenResetModal}
-            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
-            title="Zerar Rank para Nova Temporada"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Zerar Rank</span>
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={handleOpenResetModal}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+              title="Zerar Rank para Nova Temporada (Admin)"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Zerar Rank</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onRequireAdmin?.('zerar o Rank de Pontos')}
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border border-slate-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+              title="Apenas o Administrador pode zerar o Rank (clique para autenticar)"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Zerar Rank</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -525,16 +566,18 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
                                 +{chk.points} pts
                               </span>
 
-                              {/* Remover Check-in */}
-                              <button
-                                type="button"
-                                onClick={() => handlePromptDeleteCheckin(chk, entry.userName)}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
-                                title={`Remover presença de ${entry.userName} no Boss ${chk.bossName}`}
-                              >
-                                <Trash2 className="w-3 h-3 text-rose-600" />
-                                <span>Remover</span>
-                              </button>
+                              {/* Remover Check-in (Apenas Administrador) */}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePromptDeleteCheckin(chk, entry.userName)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title={`Remover presença de ${entry.userName} no Boss ${chk.bossName} (Admin)`}
+                                >
+                                  <Trash2 className="w-3 h-3 text-rose-600" />
+                                  <span>Remover</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}
