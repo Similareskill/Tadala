@@ -20,14 +20,14 @@ import {
   Trash2,
   Lock,
   Shield,
+  Sparkles,
 } from 'lucide-react';
-import { BossCheckin, BossEvent, UserRankEntry } from '../types/shopping';
-import { bossService } from '../services/bossService';
+import { BossCheckin, UserRankEntry } from '../types/shopping';
+import { bossService, isAutoConfirmMember } from '../services/bossService';
 import { playHapticSound } from '../utils/helpers';
 
 interface RankPontosViewProps {
   checkins: BossCheckin[];
-  bossEvents?: BossEvent[];
   isAdmin?: boolean;
   onRequireAdmin?: (reason: string) => void;
   onNavigateToCheckin: () => void;
@@ -36,7 +36,6 @@ interface RankPontosViewProps {
 
 export const RankPontosView: React.FC<RankPontosViewProps> = ({
   checkins,
-  bossEvents = [],
   isAdmin = false,
   onRequireAdmin,
   onNavigateToCheckin,
@@ -48,16 +47,16 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Compute live ranking from check-ins (calculando apenas o ponto de cada boss)
-  const rankingList = bossService.computeRank(checkins, bossEvents);
+  // Compute live ranking from check-ins
+  const rankingList = bossService.computeRank(checkins);
 
   // Filter ranking by search term
   const filteredRanking = rankingList.filter((entry) =>
     entry.userName.toLowerCase().includes(search.trim().toLowerCase())
   );
 
-  // Total points and checkins across all members (apenas o ponto de cada boss computado)
-  const grandTotalPoints = rankingList.reduce((acc, entry) => acc + entry.totalPoints, 0);
+  // Total points and checkins across all members
+  const grandTotalPoints = checkins.reduce((acc, c) => acc + c.points, 0);
   const totalParticipants = rankingList.length;
 
   // Copy formatted rank text for Discord / WhatsApp
@@ -124,6 +123,10 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
   const handlePromptDeleteCheckin = (chk: BossCheckin, userName: string) => {
     if (!isAdmin) {
       onRequireAdmin?.('remover o check-in das presenças confirmadas no Rank');
+      return;
+    }
+    if (userName && isAutoConfirmMember(userName)) {
+      onShowToast(`O membro "${userName}" possui confirmação automática garantida em todos os Bosses.`);
       return;
     }
     setCheckinToDelete({
@@ -326,8 +329,11 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
                 2º Lugar
               </div>
-              <div className="font-extrabold text-base text-[#131b2e] truncate max-w-[150px]">
-                {top2 ? top2.userName : '—'}
+              <div className="font-extrabold text-base text-[#131b2e] truncate max-w-[150px] flex items-center justify-center gap-1">
+                <span>{top2 ? top2.userName : '—'}</span>
+                {top2 && isAutoConfirmMember(top2.userName) && (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-purple-100 text-purple-700 border border-purple-300" title="Confirmação Automática">Auto</span>
+                )}
               </div>
               <div className="text-sm font-black text-[#2a14b4] mt-1">
                 {top2 ? `${top2.totalPoints} pts` : '—'}
@@ -348,8 +354,11 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
               <div className="text-xs font-extrabold text-amber-800 uppercase tracking-wider mb-0.5">
                 1º Lugar Geral
               </div>
-              <div className="font-black text-lg text-[#131b2e] truncate max-w-[170px]">
-                {top1 ? top1.userName : '—'}
+              <div className="font-black text-lg text-[#131b2e] truncate max-w-[170px] flex items-center justify-center gap-1">
+                <span>{top1 ? top1.userName : '—'}</span>
+                {top1 && isAutoConfirmMember(top1.userName) && (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-purple-100 text-purple-700 border border-purple-300" title="Confirmação Automática">Auto</span>
+                )}
               </div>
               <div className="text-base font-black text-amber-900 mt-1">
                 {top1 ? `${top1.totalPoints} pts` : '—'}
@@ -367,8 +376,11 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
               <div className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-0.5">
                 3º Lugar
               </div>
-              <div className="font-extrabold text-base text-[#131b2e] truncate max-w-[150px]">
-                {top3 ? top3.userName : '—'}
+              <div className="font-extrabold text-base text-[#131b2e] truncate max-w-[150px] flex items-center justify-center gap-1">
+                <span>{top3 ? top3.userName : '—'}</span>
+                {top3 && isAutoConfirmMember(top3.userName) && (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-purple-100 text-purple-700 border border-purple-300" title="Confirmação Automática">Auto</span>
+                )}
               </div>
               <div className="text-sm font-black text-[#2a14b4] mt-1">
                 {top3 ? `${top3.totalPoints} pts` : '—'}
@@ -486,6 +498,15 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
                           <span className="font-extrabold text-sm sm:text-base text-[#131b2e] truncate">
                             {entry.userName}
                           </span>
+                          {isAutoConfirmMember(entry.userName) && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded shadow-2xs"
+                              title="Confirmação Automática Ativa em todos os Bosses"
+                            >
+                              <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+                              Auto-checkin
+                            </span>
+                          )}
                           {isTop1 && (
                             <span className="hidden sm:inline-flex text-[9px] font-extrabold bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded shadow-2xs">
                               LÍDER
@@ -538,6 +559,14 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
                   {/* Expanded: History of check-ins for this person */}
                   {isExpanded && (
                     <div className="mt-3 pt-3 border-t border-[#e2e8f0]/60 pl-3 sm:pl-11 pr-2 animate-in fade-in duration-150">
+                      {isAutoConfirmMember(entry.userName) && (
+                        <div className="mb-2.5 p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-semibold flex items-center gap-2 shadow-2xs">
+                          <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                          <span>
+                            Membro com <strong className="font-extrabold text-purple-950">confirmação automática permanente</strong> em todos os check-ins da guilda.
+                          </span>
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2.5">
                         <div className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider">
                           Presenças Confirmadas ({entry.checkins.length}):
@@ -568,8 +597,8 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
                                 +{chk.points} pts
                               </span>
 
-                              {/* Remover Check-in (Apenas Administrador) */}
-                              {isAdmin && (
+                              {/* Remover Check-in (Apenas Administrador, exceto auto-confirm) */}
+                              {isAdmin && !isAutoConfirmMember(entry.userName) && (
                                 <button
                                   type="button"
                                   onClick={() => handlePromptDeleteCheckin(chk, entry.userName)}

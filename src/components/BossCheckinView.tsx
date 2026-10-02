@@ -19,7 +19,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { BossEvent, BossCheckin } from '../types/shopping';
-import { bossService, formatTimeRemaining } from '../services/bossService';
+import { bossService, formatTimeRemaining, isAutoConfirmMember } from '../services/bossService';
 import { playHapticSound } from '../utils/helpers';
 
 interface BossCheckinViewProps {
@@ -304,6 +304,10 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
       onRequireAdmin?.('remover presenças confirmadas no Boss');
       return;
     }
+    if (userName && isAutoConfirmMember(userName)) {
+      onShowToast(`O membro "${userName}" possui confirmação automática garantida em todos os Bosses.`);
+      return;
+    }
     setCheckinToDelete({
       id: checkinId,
       bossName,
@@ -505,6 +509,25 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
             Soma dos check-ins realizados
           </p>
         </div>
+      </div>
+
+      {/* Auto-confirmation banner for member Ella */}
+      <div className="bg-purple-50/80 border border-purple-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200 shadow-2xs">
+            <Sparkles className="w-4 h-4 text-purple-600" />
+          </div>
+          <div>
+            <span className="font-extrabold text-purple-950">Auto-Confirmação Ativa:</span>{' '}
+            <span className="text-purple-900 font-medium">
+              O membro <strong className="font-black text-purple-950 underline decoration-purple-400">Ella</strong> possui presença confirmada automaticamente em todos os Bosses agendados.
+            </span>
+          </div>
+        </div>
+        <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-purple-200/80 text-purple-900 shrink-0 border border-purple-300">
+          <CheckCircle2 className="w-3 h-3 text-purple-700" />
+          100% dos Check-ins
+        </span>
       </div>
 
       {/* Filter and Search Bar */}
@@ -835,30 +858,44 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                       </p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
-                        {bossCheckins.map((chk) => (
-                          <span
-                            key={chk.id}
-                            className={`inline-flex items-center gap-1 text-[11px] font-semibold pl-2 pr-1.5 py-0.5 rounded-lg border ${
-                              visitorName &&
-                              chk.userName.toLowerCase() === visitorName.toLowerCase()
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
-                                : 'bg-white text-[#334155] border-[#e2e8f0]'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>{chk.userName}</span>
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCheckin(chk.id, boss.bossName, chk.userName)}
-                                className="ml-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 p-0.5 rounded transition-colors cursor-pointer"
-                                title={`Remover check-in de ${chk.userName} (Admin)`}
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </span>
-                        ))}
+                        {bossCheckins.map((chk) => {
+                          const isAuto = isAutoConfirmMember(chk.userName) || chk.isAutoCheckin;
+                          const isMe = visitorName && chk.userName.toLowerCase() === visitorName.toLowerCase();
+                          return (
+                            <span
+                              key={chk.id}
+                              className={`inline-flex items-center gap-1 text-[11px] font-semibold pl-2 pr-1.5 py-0.5 rounded-lg border ${
+                                isAuto
+                                  ? 'bg-purple-50 text-purple-900 border-purple-200 shadow-2xs font-bold'
+                                  : isMe
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                                  : 'bg-white text-[#334155] border-[#e2e8f0]'
+                              }`}
+                            >
+                              <CheckCircle2 className={`w-3 h-3 ${isAuto ? 'text-purple-600' : 'text-emerald-600'}`} />
+                              <span>{chk.userName}</span>
+                              {isAuto && (
+                                <span
+                                  className="text-[9px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-purple-100 text-purple-700 border border-purple-300 flex items-center gap-0.5"
+                                  title="Confirmação Automática Ativa (100% dos Bosses)"
+                                >
+                                  <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+                                  Auto
+                                </span>
+                              )}
+                              {isAdmin && !isAuto && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCheckin(chk.id, boss.bossName, chk.userName)}
+                                  className="ml-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 p-0.5 rounded transition-colors cursor-pointer"
+                                  title={`Remover check-in de ${chk.userName} (Admin)`}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1008,6 +1045,12 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                 <p className="text-[11px] text-[#64748b] mt-1">
                   Qualquer visitante pode confirmar presença. Seu nome será somado no <strong>Rank de Pontos</strong>.
                 </p>
+                {isAutoConfirmMember(checkinInputName) && (
+                  <div className="mt-2 p-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-semibold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <span>O membro <strong>Ella</strong> já possui confirmação automática ativa em todos os Bosses!</span>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">

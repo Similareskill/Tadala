@@ -69,6 +69,7 @@ export interface BossCheckin {
   userName: string; // Player nickname / visitor name
   points: number;
   checkedInAt: string; // ISO string
+  isAutoCheckin?: boolean; // Automatic confirmation flag (e.g. member Ella)
 }
 
 export interface UserRankEntry {
