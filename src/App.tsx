@@ -1167,6 +1167,7 @@ export default function App() {
             {currentTab === 'rank' && (
               <RankPontosView
                 checkins={checkins}
+                bossEvents={bossEvents}
                 isAdmin={isAdmin}
                 onRequireAdmin={requireAdmin}
                 onNavigateToCheckin={() => setCurrentTab('checkin')}

@@ -382,8 +382,13 @@ export const bossService = {
   // Calculate Rank de Pontos
   // "O pontos total de cada pessoa vai aparecer em uma nova aba com nome Rank de Pontos,
   // dentro dessa aba vai ter uma lista com o total de pontos e o nome de cada pessoa."
-  computeRank(checkins: BossCheckin[]): UserRankEntry[] {
+  // Calcular estritamente o ponto do boss para cada presença confirmada (deduplicando por boss)
+  computeRank(checkins: BossCheckin[], bossEvents?: BossEvent[]): UserRankEntry[] {
     const userMap = new Map<string, UserRankEntry>();
+    const bossMap = new Map<string, BossEvent>();
+    if (bossEvents && bossEvents.length > 0) {
+      bossEvents.forEach((b) => bossMap.set(b.id, b));
+    }
 
     checkins.forEach((c) => {
       const key = c.userName.toLowerCase();
@@ -398,11 +403,22 @@ export const bossService = {
       }
 
       const entry = userMap.get(key)!;
-      entry.totalPoints += c.points;
-      entry.totalCheckins += 1;
-      entry.checkins.push(c);
-      if (new Date(c.checkedInAt) > new Date(entry.lastCheckinAt)) {
-        entry.lastCheckinAt = c.checkedInAt;
+      // Garantir que cada boss seja computado apenas uma vez por jogador para não duplicar pontos
+      const alreadyCheckedBoss = entry.checkins.some((existing) => existing.bossId === c.bossId);
+      if (!alreadyCheckedBoss) {
+        // Calcular estritamente o ponto do boss
+        const officialBoss = bossMap.get(c.bossId);
+        const bossPoint = officialBoss ? officialBoss.points : c.points;
+
+        entry.totalPoints += bossPoint;
+        entry.totalCheckins += 1;
+        entry.checkins.push({
+          ...c,
+          points: bossPoint,
+        });
+        if (new Date(c.checkedInAt) > new Date(entry.lastCheckinAt)) {
+          entry.lastCheckinAt = c.checkedInAt;
+        }
       }
     });
 

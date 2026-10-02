@@ -21,12 +21,13 @@ import {
   Lock,
   Shield,
 } from 'lucide-react';
-import { BossCheckin, UserRankEntry } from '../types/shopping';
+import { BossCheckin, BossEvent, UserRankEntry } from '../types/shopping';
 import { bossService } from '../services/bossService';
 import { playHapticSound } from '../utils/helpers';
 
 interface RankPontosViewProps {
   checkins: BossCheckin[];
+  bossEvents?: BossEvent[];
   isAdmin?: boolean;
   onRequireAdmin?: (reason: string) => void;
   onNavigateToCheckin: () => void;
@@ -35,6 +36,7 @@ interface RankPontosViewProps {
 
 export const RankPontosView: React.FC<RankPontosViewProps> = ({
   checkins,
+  bossEvents = [],
   isAdmin = false,
   onRequireAdmin,
   onNavigateToCheckin,
@@ -46,16 +48,16 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Compute live ranking from check-ins
-  const rankingList = bossService.computeRank(checkins);
+  // Compute live ranking from check-ins (calculando apenas o ponto de cada boss)
+  const rankingList = bossService.computeRank(checkins, bossEvents);
 
   // Filter ranking by search term
   const filteredRanking = rankingList.filter((entry) =>
     entry.userName.toLowerCase().includes(search.trim().toLowerCase())
   );
 
-  // Total points and checkins across all members
-  const grandTotalPoints = checkins.reduce((acc, c) => acc + c.points, 0);
+  // Total points and checkins across all members (apenas o ponto de cada boss computado)
+  const grandTotalPoints = rankingList.reduce((acc, entry) => acc + entry.totalPoints, 0);
   const totalParticipants = rankingList.length;
 
   // Copy formatted rank text for Discord / WhatsApp
