@@ -1,0 +1,212 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for authentication and identification",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user ID matching auth.uid"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Account creation timestamp"
+        }
+      },
+      "required": ["id", "email", "createdAt"]
+    },
+    "ShoppingItem": {
+      "title": "ShoppingItem",
+      "description": "Synchronized shopping list item shared across devices",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the shopping item"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the item"
+        },
+        "category": {
+          "type": "string",
+          "description": "Rarity or category tag"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pendente", "no_carrinho"],
+          "description": "Status of the item in the list"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity needed"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement"
+        },
+        "unitPrice": {
+          "type": "number",
+          "description": "Price per unit if specified"
+        },
+        "packageInfo": {
+          "type": "string",
+          "description": "Package or volume details"
+        },
+        "brandOrPreference": {
+          "type": "string",
+          "description": "Brand preference or notes"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Associated image URL"
+        },
+        "nameList": {
+          "type": "array",
+          "description": "List of associated names and aliases"
+        },
+        "selected": {
+          "type": "boolean",
+          "description": "Whether selected in current session"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of the user who created this item"
+        },
+        "createdByName": {
+          "type": "string",
+          "description": "Display name of the creator"
+        },
+        "collectedBy": {
+          "type": "string",
+          "description": "UID or identifier of the user who collected this item"
+        },
+        "collectedByName": {
+          "type": "string",
+          "description": "Display name of the member who collected this item"
+        },
+        "collectedAt": {
+          "type": "string",
+          "description": "Timestamp when this item was collected"
+        }
+      },
+      "required": ["id", "name", "category", "status", "quantity", "unit", "createdAt", "updatedAt"]
+    },
+    "MemberStatus": {
+      "title": "MemberStatus",
+      "description": "Guild member combat stats including Dano, Defesa, Acerto, and Power",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique status entry identifier"
+        },
+        "memberName": {
+          "type": "string",
+          "description": "Name or nickname of the guild member"
+        },
+        "level": {
+          "type": "number",
+          "description": "Character level"
+        },
+        "classe": {
+          "type": "string",
+          "description": "Class or combat role of the member"
+        },
+        "dano": {
+          "type": "number",
+          "description": "Damage / Attack power"
+        },
+        "defesa": {
+          "type": "number",
+          "description": "Defense / Armor rating"
+        },
+        "acerto": {
+          "type": "number",
+          "description": "Accuracy / Hit chance"
+        },
+        "power": {
+          "type": "number",
+          "description": "Overall power rating"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Wallet address or notes"
+        },
+        "imgurUrl": {
+          "type": "string",
+          "description": "Imgur image URL (https://imgur.com) for status verification print"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["id", "memberName", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/shopping_items/{itemId}": {
+      "schema": "ShoppingItem",
+      "description": "Synchronized shopping items accessible by authenticated household users"
+    },
+    "/shopping_history/{historyId}": {
+      "description": "Archived shopping and craft history entries"
+    },
+    "/system_config/{configId}": {
+      "description": "System configuration, admin authentication, and app settings"
+    },
+    "/boss_events/{eventId}": {
+      "description": "Boss events scheduled for guild and global members"
+    },
+    "/boss_checkins/{checkinId}": {
+      "description": "Boss check-ins and attendance records contributing to the Points Rank"
+    },
+    "/member_statuses/{statusId}": {
+      "schema": "MemberStatus",
+      "description": "Member combat status records with Dano, Defesa, Acerto, and Power"
+    },
+    "/voice_rooms/{roomId}": {
+      "description": "Voice chat room metadata and configuration"
+    },
+    "/voice_rooms/{roomId}/participants/{participantId}": {
+      "description": "Connected device participants per voice room for isolated multi-device synchronization"
+    },
+    "/voice_rooms/{roomId}/signals/{signalId}": {
+      "description": "WebRTC P2P audio signaling (offers, answers, candidates) between connected devices"
+    },
+    "/voice_chat_messages/{messageId}": {
+      "description": "Voice chat text messages with attachments (images, videos, audios, files)"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Lista - Gestão de Compras",
+  "description": "Sistema de gestão ágil de compras e despensa com controle de quantidades, associação de imagens e organização por categorias.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

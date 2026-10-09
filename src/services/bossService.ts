@@ -1,0 +1,838 @@
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  Unsubscribe,
+  getDocs,
+  writeBatch,
+} from 'firebase/firestore';
+import { db } from './firebase';
+import { BossEvent, BossCheckin, UserRankEntry } from '../types/shopping';
+
+const BOSS_EVENTS_COLLECTION = 'boss_events';
+const BOSS_CHECKINS_COLLECTION = 'boss_checkins';
+const LOCAL_STORAGE_BOSSES = 'craft_boss_events_data';
+const LOCAL_STORAGE_CHECKINS = 'craft_boss_checkins_data';
+const SEASON_RESET_KEY = 'craft_checkins_season_cleared';
+
+// Initial preset Boss events (including an active one open right now so check-in can be tested immediately!)
+const now = Date.now();
+export const INITIAL_BOSS_EVENTS: BossEvent[] = [
+  {
+    id: 'boss-1',
+    bossName: 'Baltazar',
+    scheduledTime: new Date(now - 15 * 60 * 1000).toISOString(), // Started 15 min ago -> check-in active for ~45 min more!
+    points: 5,
+    description: 'Spawn na Fortaleza da Guilda. Recompensa itens de forja épicos.',
+    category: 'Boss de Guilda',
+    createdAt: new Date(now - 3600000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+  {
+    id: 'boss-2',
+    bossName: 'Global',
+    scheduledTime: new Date(now + 45 * 60 * 1000).toISOString(), // In 45 min
+    points: 4,
+    description: 'Spawn no mapa global. Todos os membros convocados.',
+    category: 'Boss Global',
+    createdAt: new Date(now - 1800000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+  {
+    id: 'boss-3',
+    bossName: 'Damiros',
+    scheduledTime: new Date(now + 2 * 60 * 60 * 1000).toISOString(), // In 2 hours
+    points: 3,
+    description: 'Boss de mapa aberto. Levar consumíveis de ataque.',
+    category: 'Boss Global',
+    createdAt: new Date(now - 1800000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+  {
+    id: 'boss-4',
+    bossName: 'Cavaleiro',
+    scheduledTime: new Date(now - 3 * 60 * 60 * 1000).toISOString(), // Past boss
+    points: 2,
+    description: 'Monstro Elite derrotado.',
+    category: 'Boss Global',
+    createdAt: new Date(now - 4 * 3600000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+  {
+    id: 'boss-5',
+    bossName: 'Rotura',
+    scheduledTime: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+    points: 1,
+    description: 'Evento de Rotura dimensional.',
+    category: 'Boss Global',
+    createdAt: new Date(now - 1800000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+  {
+    id: 'boss-6',
+    bossName: 'Τ.Α 4',
+    scheduledTime: new Date(now + 4 * 60 * 60 * 1000).toISOString(),
+    points: 5,
+    description: 'Torre Ancestral 4. Requer grupo coordenado.',
+    category: 'Boss TA2,TA3,TA4',
+    createdAt: new Date(now - 1800000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+  {
+    id: 'boss-7',
+    bossName: 'Loccius-Abadia',
+    scheduledTime: new Date(now + 5 * 60 * 60 * 1000).toISOString(),
+    points: 3,
+    description: 'Cripta da Abadia 118.',
+    category: 'Boss Anonimas 110 / Abadia 118',
+    createdAt: new Date(now - 1800000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
+];
+
+// Automatic confirmation members: member Ella receives automatic confirmation in all check-ins
+export const AUTO_CONFIRM_MEMBERS: string[] = ['Ella'];
+const REMOVED_AUTO_CHECKINS_KEY = 'craft_removed_auto_checkins';
+
+export function isAutoConfirmMember(name?: string): boolean {
+  if (!name) return false;
+  return AUTO_CONFIRM_MEMBERS.some(
+    (m) => m.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+}
+
+export function getRemovedAutoCheckins(): string[] {
+  try {
+    const raw = localStorage.getItem(REMOVED_AUTO_CHECKINS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+export function markAutoCheckinRemoved(bossId: string, member: string = 'Ella'): void {
+  try {
+    const list = getRemovedAutoCheckins();
+    const key = `${bossId}:${member.trim().toLowerCase()}`;
+    if (!list.includes(key)) {
+      list.push(key);
+      localStorage.setItem(REMOVED_AUTO_CHECKINS_KEY, JSON.stringify(list));
+    }
+  } catch {}
+}
+
+export function unmarkAutoCheckinRemoved(bossId: string, member: string = 'Ella'): void {
+  try {
+    const list = getRemovedAutoCheckins();
+    const key = `${bossId}:${member.trim().toLowerCase()}`;
+    const filtered = list.filter((k) => k !== key);
+    localStorage.setItem(REMOVED_AUTO_CHECKINS_KEY, JSON.stringify(filtered));
+  } catch {}
+}
+
+export function isAutoCheckinRemoved(bossId: string, member: string = 'Ella'): boolean {
+  const key = `${bossId}:${member.trim().toLowerCase()}`;
+  return getRemovedAutoCheckins().includes(key);
+}
+
+export function clearAllRemovedAutoCheckins(): void {
+  try {
+    localStorage.removeItem(REMOVED_AUTO_CHECKINS_KEY);
+  } catch {}
+}
+
+export const INITIAL_CHECKINS: BossCheckin[] = INITIAL_BOSS_EVENTS.map((b) => ({
+  id: `chk-auto-${b.id}-ella`,
+  bossId: b.id,
+  bossName: b.bossName,
+  userName: 'Ella',
+  points: b.points,
+  checkedInAt: b.createdAt || new Date().toISOString(),
+  isAutoCheckin: true,
+}));
+
+function getStoredLocalBosses(): BossEvent[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_BOSSES);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return INITIAL_BOSS_EVENTS;
+}
+
+function saveLocalBosses(bosses: BossEvent[]) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_BOSSES, JSON.stringify(bosses));
+  } catch {}
+}
+
+let cachedBossEvents: BossEvent[] = [];
+let cachedCheckins: BossCheckin[] = [];
+
+function syncAutoCheckinsInternal(
+  bosses: BossEvent[],
+  currentCheckins: BossCheckin[]
+): BossCheckin[] {
+  if (!bosses || bosses.length === 0) return currentCheckins;
+
+  const updated = [...currentCheckins];
+  let hasNew = false;
+  const removedKeys = getRemovedAutoCheckins();
+
+  bosses.forEach((boss) => {
+    AUTO_CONFIRM_MEMBERS.forEach((member) => {
+      const removedKey = `${boss.id}:${member.trim().toLowerCase()}`;
+      if (removedKeys.includes(removedKey)) {
+        // Confirmation of auto-checkin was removed for this boss
+        return;
+      }
+
+      const alreadyExists = updated.some(
+        (c) =>
+          c.bossId === boss.id &&
+          c.userName.trim().toLowerCase() === member.trim().toLowerCase()
+      );
+
+      if (!alreadyExists) {
+        const checkinId = `chk-auto-${boss.id}-${member.toLowerCase()}`;
+        const autoCheckin: BossCheckin = {
+          id: checkinId,
+          bossId: boss.id,
+          bossName: boss.bossName,
+          userName: member,
+          points: boss.points,
+          checkedInAt: boss.createdAt || new Date().toISOString(),
+          isAutoCheckin: true,
+        };
+        updated.push(autoCheckin);
+        hasNew = true;
+
+        // Asynchronously persist to firestore
+        setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), autoCheckin).catch(() => {});
+      }
+    });
+  });
+
+  if (hasNew) {
+    updated.sort(
+      (a, b) =>
+        new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime()
+    );
+    saveLocalCheckins(updated);
+    cachedCheckins = updated;
+  }
+
+  return updated;
+}
+
+function getStoredLocalCheckins(): BossCheckin[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_CHECKINS);
+    if (raw !== null) {
+      const parsed: BossCheckin[] = JSON.parse(raw);
+      return syncAutoCheckinsInternal(getStoredLocalBosses(), parsed);
+    }
+  } catch {}
+  return syncAutoCheckinsInternal(getStoredLocalBosses(), INITIAL_CHECKINS);
+}
+
+function saveLocalCheckins(checkins: BossCheckin[]) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_CHECKINS, JSON.stringify(checkins));
+  } catch {}
+}
+
+export const bossService = {
+  // Synchronize automatic check-ins for designated members (e.g. member Ella)
+  syncAutoCheckins(
+    bosses: BossEvent[],
+    currentCheckins: BossCheckin[]
+  ): BossCheckin[] {
+    return syncAutoCheckinsInternal(bosses, currentCheckins);
+  },
+
+  // Subscribe to Boss Events
+  subscribeBossEvents(
+    onUpdate: (events: BossEvent[]) => void,
+    onError?: (err: Error) => void
+  ): Unsubscribe {
+    // Initial emit from local / cache
+    const initial = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+    onUpdate(initial);
+
+    const colRef = collection(db, BOSS_EVENTS_COLLECTION);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (snapshot.empty) {
+          // If first run and completely empty, seed initial bosses once
+          const local = getStoredLocalBosses();
+          if (local.length > 0 && cachedBossEvents.length === 0) {
+            onUpdate(local);
+            local.forEach((b) => {
+              setDoc(doc(db, BOSS_EVENTS_COLLECTION, b.id), b).catch(() => {});
+            });
+            this.syncAutoCheckins(local, cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
+            return;
+          }
+          cachedBossEvents = [];
+          saveLocalBosses([]);
+          onUpdate([]);
+          return;
+        }
+
+        const events: BossEvent[] = [];
+        snapshot.forEach((d) => {
+          events.push({ ...(d.data() as BossEvent), id: d.id });
+        });
+
+        // Sort by scheduledTime ascending (earliest first)
+        events.sort(
+          (a, b) =>
+            new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
+        );
+
+        cachedBossEvents = events;
+        saveLocalBosses(events);
+        onUpdate(events);
+
+        // Ensure auto-checkin for member Ella is fulfilled for all received bosses
+        this.syncAutoCheckins(events, cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
+      },
+      (error) => {
+        console.warn('Firestore boss_events subscription fallback:', error);
+        onUpdate(cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses());
+        if (onError) onError(error);
+      }
+    );
+  },
+
+  // Subscribe to Checkins
+  subscribeCheckins(
+    onUpdate: (checkins: BossCheckin[]) => void,
+    onError?: (err: Error) => void
+  ): Unsubscribe {
+    // Initial emit from cache or local
+    const initialCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const initialBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+    const initialSynced = this.syncAutoCheckins(initialBosses, initialCheckins);
+    onUpdate(initialSynced);
+
+    const colRef = collection(db, BOSS_CHECKINS_COLLECTION);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (snapshot.empty) {
+          // If empty, still sync auto-checkin for existing bosses if any
+          const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+          const synced = this.syncAutoCheckins(activeBosses, []);
+          cachedCheckins = synced;
+          saveLocalCheckins(synced);
+          onUpdate(synced);
+          return;
+        }
+
+        const checkins: BossCheckin[] = [];
+        snapshot.forEach((d) => {
+          checkins.push({ ...(d.data() as BossCheckin), id: d.id });
+        });
+
+        // Sort by checkedInAt descending
+        checkins.sort(
+          (a, b) =>
+            new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime()
+        );
+
+        const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+        const synced = this.syncAutoCheckins(activeBosses, checkins);
+
+        cachedCheckins = synced;
+        saveLocalCheckins(synced);
+        onUpdate(synced);
+      },
+      (error) => {
+        console.warn('Firestore boss_checkins subscription fallback:', error);
+        const fallbackCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+        const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+        const synced = this.syncAutoCheckins(activeBosses, fallbackCheckins);
+        onUpdate(synced);
+        if (onError) onError(error);
+      }
+    );
+  },
+
+  // Add a new Boss event (Admin feature)
+  async addBossEvent(
+    data: Omit<BossEvent, 'id' | 'createdAt'>
+  ): Promise<BossEvent> {
+    const id = `boss-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const clampedPoints = Math.min(100, Math.max(1, Math.round(Number(data.points) || 1)));
+    const newBoss: BossEvent = {
+      ...data,
+      points: clampedPoints,
+      id,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Save locally
+    const current = getStoredLocalBosses();
+    saveLocalBosses([newBoss, ...current]);
+
+    // Save to Firestore
+    try {
+      await setDoc(doc(db, BOSS_EVENTS_COLLECTION, id), newBoss);
+    } catch (e) {
+      console.warn('Could not save boss to firestore, saved locally:', e);
+    }
+
+    // Immediately trigger auto-checkin for member Ella
+    this.syncAutoCheckins([newBoss], getStoredLocalCheckins());
+
+    return newBoss;
+  },
+
+  // Delete a Boss event
+  async deleteBossEvent(id: string): Promise<void> {
+    const current = getStoredLocalBosses().filter((b) => b.id !== id);
+    saveLocalBosses(current);
+
+    try {
+      await deleteDoc(doc(db, BOSS_EVENTS_COLLECTION, id));
+    } catch (e) {
+      console.warn('Could not delete boss in firestore:', e);
+    }
+  },
+
+  // Delete a specific Check-in
+  async deleteCheckin(checkinId: string, bossId?: string, userName?: string): Promise<void> {
+    const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const target = all.find((c) => c.id === checkinId);
+
+    const bId = bossId || target?.bossId;
+    const uName = userName || target?.userName;
+
+    // If removing an auto-checkin member, mark it so sync won't recreate it for this boss
+    if (bId && uName && isAutoConfirmMember(uName)) {
+      markAutoCheckinRemoved(bId, uName);
+    }
+
+    const current = all.filter((c) => c.id !== checkinId);
+    saveLocalCheckins(current);
+    cachedCheckins = current;
+
+    try {
+      await deleteDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId));
+    } catch (e) {
+      console.warn('Could not delete checkin in firestore:', e);
+    }
+  },
+
+  // Remove confirmation of auto-checkin for a specific boss
+  async removeAutoCheckinForBoss(bossId: string, memberName: string = 'Ella'): Promise<void> {
+    markAutoCheckinRemoved(bossId, memberName);
+    const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const target = all.find(
+      (c) =>
+        c.bossId === bossId &&
+        c.userName.trim().toLowerCase() === memberName.trim().toLowerCase()
+    );
+
+    if (target) {
+      await this.deleteCheckin(target.id, bossId, memberName);
+    }
+  },
+
+  // Remove confirmation of auto-checkin from ALL bosses
+  async removeAllAutoCheckins(memberName: string = 'Ella'): Promise<void> {
+    const bosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+    bosses.forEach((b) => markAutoCheckinRemoved(b.id, memberName));
+
+    const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const toDelete = all.filter(
+      (c) => c.userName.trim().toLowerCase() === memberName.trim().toLowerCase()
+    );
+
+    const remaining = all.filter(
+      (c) => c.userName.trim().toLowerCase() !== memberName.trim().toLowerCase()
+    );
+    saveLocalCheckins(remaining);
+    cachedCheckins = remaining;
+
+    for (const c of toDelete) {
+      deleteDoc(doc(db, BOSS_CHECKINS_COLLECTION, c.id)).catch(() => {});
+    }
+  },
+
+  // Restore/re-enable auto-checkin confirmation for a specific boss
+  async restoreAutoCheckinForBoss(boss: BossEvent, memberName: string = 'Ella'): Promise<BossCheckin | null> {
+    unmarkAutoCheckinRemoved(boss.id, memberName);
+    const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const alreadyExists = all.some(
+      (c) =>
+        c.bossId === boss.id &&
+        c.userName.trim().toLowerCase() === memberName.trim().toLowerCase()
+    );
+
+    if (alreadyExists) return null;
+
+    const checkinId = `chk-auto-${boss.id}-${memberName.toLowerCase()}`;
+    const autoCheckin: BossCheckin = {
+      id: checkinId,
+      bossId: boss.id,
+      bossName: boss.bossName,
+      userName: memberName,
+      points: boss.points,
+      checkedInAt: boss.createdAt || new Date().toISOString(),
+      isAutoCheckin: true,
+    };
+
+    const updated = [autoCheckin, ...all];
+    saveLocalCheckins(updated);
+    cachedCheckins = updated;
+
+    try {
+      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), autoCheckin);
+    } catch {}
+
+    return autoCheckin;
+  },
+
+  // Restore/re-enable all auto-checkins
+  async restoreAllAutoCheckins(memberName: string = 'Ella'): Promise<BossCheckin[]> {
+    clearAllRemovedAutoCheckins();
+    const bosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+    const current = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const synced = this.syncAutoCheckins(bosses, current);
+    return synced;
+  },
+
+  // Add bonus points (+3 pts) to all boss events and check-ins that are currently OPEN
+  // Add bonus points (+3 pts) across all open bosses and their already created check-ins
+  async addBonusPointsToOpenCheckins(
+    bonus: number = 3,
+    overrideBosses?: BossEvent[],
+    overrideCheckins?: BossCheckin[]
+  ): Promise<{ affectedBossesCount: number; affectedCheckinsCount: number; affectedBossNames: string[] }> {
+    const allBosses =
+      overrideBosses && overrideBosses.length > 0
+        ? overrideBosses
+        : cachedBossEvents.length > 0
+        ? cachedBossEvents
+        : getStoredLocalBosses();
+
+    const openBosses = allBosses.filter((b) =>
+      this.getCheckinWindowStatus(b.scheduledTime, b.checkinEndTime, b.checkinStartTime).isOpen
+    );
+
+    if (openBosses.length === 0) {
+      return { affectedBossesCount: 0, affectedCheckinsCount: 0, affectedBossNames: [] };
+    }
+
+    const openBossIds = new Set(openBosses.map((b) => b.id));
+    const affectedBossNames: string[] = [];
+
+    // 1. Update points for open bosses in local storage and Firestore
+    const updatedBosses = allBosses.map((b) => {
+      if (openBossIds.has(b.id)) {
+        affectedBossNames.push(b.bossName);
+        const newPts = (b.points || 0) + bonus;
+        const updated = { ...b, points: newPts };
+        setDoc(doc(db, BOSS_EVENTS_COLLECTION, b.id), updated).catch(() => {});
+        return updated;
+      }
+      return b;
+    });
+
+    saveLocalBosses(updatedBosses);
+    cachedBossEvents = updatedBosses;
+
+    // 2. Update points for all check-ins already created for these open bosses
+    const allCheckins =
+      overrideCheckins && overrideCheckins.length > 0
+        ? overrideCheckins
+        : cachedCheckins.length > 0
+        ? cachedCheckins
+        : getStoredLocalCheckins();
+
+    let affectedCheckinsCount = 0;
+
+    const updatedCheckins = allCheckins.map((chk) => {
+      if (openBossIds.has(chk.bossId)) {
+        affectedCheckinsCount++;
+        const newPts = (chk.points || 0) + bonus;
+        const updated = { ...chk, points: newPts };
+        setDoc(doc(db, BOSS_CHECKINS_COLLECTION, chk.id), updated).catch(() => {});
+        return updated;
+      }
+      return chk;
+    });
+
+    saveLocalCheckins(updatedCheckins);
+    cachedCheckins = updatedCheckins;
+
+    return {
+      affectedBossesCount: openBosses.length,
+      affectedCheckinsCount,
+      affectedBossNames,
+    };
+  },
+
+  // Add bonus points (+3 pts) to a single specific open boss and its confirmed check-ins
+  async addBonusPointsToSingleBoss(
+    bossId: string,
+    bonus: number = 3,
+    overrideBosses?: BossEvent[],
+    overrideCheckins?: BossCheckin[]
+  ): Promise<{ success: boolean; newPoints: number; bossName: string; checkinsCount: number }> {
+    const allBosses =
+      overrideBosses && overrideBosses.length > 0
+        ? overrideBosses
+        : cachedBossEvents.length > 0
+        ? cachedBossEvents
+        : getStoredLocalBosses();
+
+    const boss = allBosses.find((b) => b.id === bossId);
+    if (!boss) return { success: false, newPoints: 0, bossName: '', checkinsCount: 0 };
+
+    const newPoints = (boss.points || 0) + bonus;
+    const updatedBoss = { ...boss, points: newPoints };
+
+    const updatedBosses = allBosses.map((b) => (b.id === bossId ? updatedBoss : b));
+    saveLocalBosses(updatedBosses);
+    cachedBossEvents = updatedBosses;
+
+    setDoc(doc(db, BOSS_EVENTS_COLLECTION, bossId), updatedBoss).catch(() => {});
+
+    // Update all check-ins already created for this boss
+    const allCheckins =
+      overrideCheckins && overrideCheckins.length > 0
+        ? overrideCheckins
+        : cachedCheckins.length > 0
+        ? cachedCheckins
+        : getStoredLocalCheckins();
+
+    let checkinsCount = 0;
+
+    const updatedCheckins = allCheckins.map((c) => {
+      if (c.bossId === bossId) {
+        checkinsCount++;
+        const updated = { ...c, points: (c.points || 0) + bonus };
+        setDoc(doc(db, BOSS_CHECKINS_COLLECTION, c.id), updated).catch(() => {});
+        return updated;
+      }
+      return c;
+    });
+
+    saveLocalCheckins(updatedCheckins);
+    cachedCheckins = updatedCheckins;
+
+    return { success: true, newPoints, bossName: boss.bossName, checkinsCount };
+  },
+
+  // Add bonus points (+3 pts) to a single specific check-in
+  async addBonusPointsToSingleCheckin(
+    checkinId: string,
+    bonus: number = 3,
+    overrideCheckins?: BossCheckin[]
+  ): Promise<{ success: boolean; newPoints: number; userName: string; bossName: string }> {
+    const allCheckins =
+      overrideCheckins && overrideCheckins.length > 0
+        ? overrideCheckins
+        : cachedCheckins.length > 0
+        ? cachedCheckins
+        : getStoredLocalCheckins();
+
+    const chk = allCheckins.find((c) => c.id === checkinId);
+    if (!chk) return { success: false, newPoints: 0, userName: '', bossName: '' };
+
+    const newPoints = (chk.points || 0) + bonus;
+    const updated = { ...chk, points: newPoints };
+    const updatedCheckins = allCheckins.map((c) => (c.id === checkinId ? updated : c));
+
+    saveLocalCheckins(updatedCheckins);
+    cachedCheckins = updatedCheckins;
+
+    setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), updated).catch(() => {});
+
+    return { success: true, newPoints, userName: chk.userName, bossName: chk.bossName };
+  },
+
+  // Helper to determine the check-in window (manual or fallback)
+  getCheckinWindowStatus(
+    scheduledTime: string,
+    checkinEndTime?: string,
+    checkinStartTime?: string
+  ) {
+    const startMs = checkinStartTime
+      ? new Date(checkinStartTime).getTime()
+      : new Date(scheduledTime).getTime();
+
+    // If manual end time is provided, use it; otherwise fallback to start + 1h
+    const endMs = checkinEndTime
+      ? new Date(checkinEndTime).getTime()
+      : startMs + 60 * 60 * 1000;
+
+    const currentMs = Date.now();
+
+    const isUpcoming = currentMs < startMs;
+    const isOpen = currentMs >= startMs && currentMs <= endMs;
+    const isExpired = currentMs > endMs;
+
+    let remainingMs = 0;
+    if (isUpcoming) {
+      remainingMs = startMs - currentMs;
+    } else if (isOpen) {
+      remainingMs = endMs - currentMs;
+    }
+
+    return {
+      isOpen,
+      isUpcoming,
+      isExpired,
+      startMs,
+      endMs,
+      remainingMs,
+    };
+  },
+
+  // Visitor check-in confirmation
+  async confirmCheckin(
+    boss: BossEvent,
+    userName: string
+  ): Promise<{ success: boolean; error?: string; checkin?: BossCheckin }> {
+    const trimmedName = userName.trim();
+    if (!trimmedName) {
+      return { success: false, error: 'Por favor, informe seu nome ou nick de jogador.' };
+    }
+
+    const window = this.getCheckinWindowStatus(
+      boss.scheduledTime,
+      boss.checkinEndTime,
+      boss.checkinStartTime
+    );
+    if (window.isUpcoming) {
+      return {
+        success: false,
+        error: `O período de check-in deste Boss ainda não abriu. Inicia em ${formatTimeRemaining(window.remainingMs)}.`,
+      };
+    }
+
+    if (window.isExpired) {
+      return {
+        success: false,
+        error: 'O período de check-in para este Boss já foi encerrado.',
+      };
+    }
+
+    // Check if user already confirmed for this boss
+    const activeCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+    const alreadyDone = activeCheckins.some(
+      (c) =>
+        c.bossId === boss.id &&
+        c.userName.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (alreadyDone) {
+      return {
+        success: false,
+        error: `"${trimmedName}" já confirmou presença neste Boss!`,
+      };
+    }
+
+    const checkinId = `chk-${boss.id}-${Date.now()}`;
+    const newCheckin: BossCheckin = {
+      id: checkinId,
+      bossId: boss.id,
+      bossName: boss.bossName,
+      userName: trimmedName,
+      points: boss.points,
+      checkedInAt: new Date().toISOString(),
+    };
+
+    // Save locally
+    try {
+      localStorage.removeItem(SEASON_RESET_KEY);
+    } catch {}
+    saveLocalCheckins([newCheckin, ...activeCheckins]);
+
+    // Save to Firestore
+    try {
+      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), newCheckin);
+    } catch (e) {
+      console.warn('Could not save checkin to firestore, saved locally:', e);
+    }
+
+    return { success: true, checkin: newCheckin };
+  },
+
+  // Calculate Rank de Pontos
+  // "O pontos total de cada pessoa vai aparecer em uma nova aba com nome Rank de Pontos,
+  // dentro dessa aba vai ter uma lista com o total de pontos e o nome de cada pessoa."
+  computeRank(checkins: BossCheckin[]): UserRankEntry[] {
+    const userMap = new Map<string, UserRankEntry>();
+
+    checkins.forEach((c) => {
+      const key = c.userName.toLowerCase();
+      if (!userMap.has(key)) {
+        userMap.set(key, {
+          userName: c.userName, // keep user casing
+          totalPoints: 0,
+          totalCheckins: 0,
+          checkins: [],
+          lastCheckinAt: c.checkedInAt,
+        });
+      }
+
+      const entry = userMap.get(key)!;
+      entry.totalPoints += c.points;
+      entry.totalCheckins += 1;
+      entry.checkins.push(c);
+      if (new Date(c.checkedInAt) > new Date(entry.lastCheckinAt)) {
+        entry.lastCheckinAt = c.checkedInAt;
+      }
+    });
+
+    const rankList = Array.from(userMap.values());
+
+    // Sort descending by points, tie-break by total checkins desc
+    rankList.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      return b.totalCheckins - a.totalCheckins;
+    });
+
+    return rankList;
+  },
+
+  // Reset season / rank (Admin only)
+  async resetAllCheckins(): Promise<void> {
+    try {
+      localStorage.setItem(SEASON_RESET_KEY, 'true');
+    } catch {}
+    saveLocalCheckins([]);
+    try {
+      const snapshot = await getDocs(collection(db, BOSS_CHECKINS_COLLECTION));
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) {
+      console.warn('Could not clear checkins in firestore:', e);
+    }
+  },
+};
+
+export function formatTimeRemaining(ms: number): string {
+  if (ms <= 0) return '00m 00s';
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+}

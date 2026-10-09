@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile documents
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Shared shopping items collection
+    match /shopping_items/{itemId} {
+      // Anyone can read the shared list
+      allow read: if true;
+
+      // Anyone can create, update, or delete items
+      allow create, update, delete: if true;
+    }
+
+    // Shared shopping history records
+    match /shopping_history/{historyId} {
+      allow read, write: if true;
+    }
+
+    // Household members collection for shared member tags across devices
+    match /household_members/{memberId} {
+      allow read, write: if true;
+    }
+
+    // System configuration and admin authentication credentials
+    match /system_config/{configId} {
+      allow read, write: if true;
+    }
+
+    // Boss events collection
+    match /boss_events/{eventId} {
+      allow read, write: if true;
+    }
+
+    // Boss check-ins records
+    match /boss_checkins/{checkinId} {
+      allow read, write: if true;
+    }
+
+    // Member combat status records (Dano, Defesa, Acerto, Power)
+    match /member_statuses/{statusId} {
+      allow read, write: if true;
+    }
+
+    // Activity logs collection (Audit & historical records)
+    match /activity_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Voice Chat messages collection (Text, images, videos, audio, files)
+    match /voice_chat_messages/{messageId} {
+      allow read, write: if true;
+    }
+
+    // Voice rooms and active voice communication state (including participants and WebRTC signals)
+    match /voice_rooms/{roomId} {
+      allow read, write: if true;
+
+      match /{allSubcollections=**} {
+        allow read, write: if true;
+      }
+    }
+  }
+}

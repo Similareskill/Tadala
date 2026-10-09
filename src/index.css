@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-main: #faf8ff;
+    --bg-card: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #131b2e;
+    --text-secondary: #64748b;
+    color-scheme: light;
+  }
+
+  .dark, html.dark {
+    --bg-main: #0b0f19;
+    --bg-card: #131826;
+    --border-color: #21293c;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text-primary);
+    background-color: var(--bg-main);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dark body,
+  html.dark body {
+    color: #f1f5f9;
+    background-color: #0b0f19;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Tabular figures for rapid counter adjustments without layout jitter */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #111522;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #252e42;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #394663;
+}
+
+/* Dark mode overrides for background cards, borders and panels */
+.dark .bg-white {
+  background-color: #131826 !important;
+}
+.dark .bg-\[\#faf8ff\],
+.dark .bg-\[\#f8fafc\],
+.dark .bg-\[\#fafbfc\] {
+  background-color: #0d121e !important;
+}
+.dark .bg-\[\#f1f5f9\] {
+  background-color: #1a2233 !important;
+}
+.dark .border-\[\#e2e8f0\],
+.dark .border-\[\#f1f5f9\],
+.dark .border-\[\#cbd5e1\] {
+  border-color: #222b3e !important;
+}
+.dark .text-\[\#131b2e\],
+.dark .text-\[\#1e293b\] {
+  color: #f1f5f9 !important;
+}
+.dark .text-\[\#475569\],
+.dark .text-\[\#64748b\] {
+  color: #94a3b8 !important;
+}
+.dark .divide-\[\#f1f5f9\],
+.dark .divide-\[\#e2e8f0\] {
+  border-color: #222b3e !important;
+}
+.dark select {
+  background-color: #131826;
+  color: #f1f5f9;
+}
+.dark option {
+  background-color: #131826;
+  color: #f1f5f9;
+}
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="url"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark textarea {
+  color: #f1f5f9;
+}
+.dark .hover\:bg-\[\#f8fafc\]:hover,
+.dark .hover\:bg-\[\#f1f5f9\]:hover,
+.dark .hover\:bg-\[\#fafbfc\]:hover {
+  background-color: #1c2438 !important;
+}
