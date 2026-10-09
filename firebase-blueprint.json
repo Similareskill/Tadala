@@ -195,18 +195,6 @@
     "/member_statuses/{statusId}": {
       "schema": "MemberStatus",
       "description": "Member combat status records with Dano, Defesa, Acerto, and Power"
-    },
-    "/voice_rooms/{roomId}": {
-      "description": "Voice chat room metadata and configuration"
-    },
-    "/voice_rooms/{roomId}/participants/{participantId}": {
-      "description": "Connected device participants per voice room for isolated multi-device synchronization"
-    },
-    "/voice_rooms/{roomId}/signals/{signalId}": {
-      "description": "WebRTC P2P audio signaling (offers, answers, candidates) between connected devices"
-    },
-    "/voice_chat_messages/{messageId}": {
-      "description": "Voice chat text messages with attachments (images, videos, audios, files)"
     }
   }
 }
