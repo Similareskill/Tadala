@@ -40,38 +40,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleQuickLogin = async (presetEmail: string) => {
-    setEmail(presetEmail);
-    setPassword(DEFAULT_ADMIN_PASSWORD);
-    setLoading(true);
-    setErrorMessage('');
-    playHapticSound('toggle');
-
-    try {
-      const res = await adminAuthService.login(presetEmail, DEFAULT_ADMIN_PASSWORD, remember);
-      if (res.success) {
-        playHapticSound('toggle');
-        activityLogService.log({
-          type: 'admin_login',
-          title: 'Login de Administrador Realizado',
-          description: `Sessão de Administrador iniciada (${presetEmail}). Permissão total de modificação liberada.`,
-          userName: res.user?.name || presetEmail,
-          userRole: 'admin',
-        });
-        onSuccess(`Login de Administrador (${res.user?.name || presetEmail}) confirmado com sucesso!`);
-        onClose();
-      } else {
-        setErrorMessage(res.error || 'Falha ao processar acesso de administrador.');
-      }
-    } catch (err: unknown) {
-      setErrorMessage(
-        (err as { message?: string })?.message || 'Falha ao processar acesso de administrador.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -161,41 +129,37 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           )}
 
           {/* Quick Admin Account Selector */}
-          <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-2xl p-3 space-y-2">
+          <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-2xl p-3 space-y-1.5">
             <div className="text-[11px] font-bold text-[#475569] flex items-center justify-between">
               <span>Contas de Admin Disponíveis:</span>
-              <span className="text-[10px] text-[#2a14b4] font-semibold">1 clique para entrar</span>
+              <span className="text-[10px] text-[#94a3b8] font-normal">Clique para preencher</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {[
-                { email: 'admin@tadalamanu.com', name: 'Manu (Admin)' },
-                { email: 'admin@tadalathorinha.com', name: 'Thorinha (Admin)' },
-                { email: 'admin@tadalatorean.com', name: 'Torean (Admin)' },
+                { email: 'admin@tadalamanu.com', name: 'Manu' },
+                { email: 'admin@tadalathorinha.com', name: 'Thorinha' },
+                { email: 'admin@tadalatorean.com', name: 'Torean' },
                 { email: 'leandrotemoteo123@gmail.com', name: 'Leandro' },
                 { email: 'admin@gestaodecompras.com', name: 'Geral' },
-              ].map((acc) => {
-                const isSelected = email.toLowerCase() === acc.email.toLowerCase();
-                return (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => handleQuickLogin(acc.email)}
-                    disabled={loading}
-                    title={`Entrar imediatamente como ${acc.name}`}
-                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer flex items-center justify-between gap-1 shadow-2xs ${
-                      isSelected
-                        ? 'bg-[#2a14b4] text-white border-[#2a14b4] shadow-xs'
-                        : 'bg-white hover:bg-[#eaedff] text-[#334155] hover:border-[#2a14b4]/40 border-[#cbd5e1]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span className="truncate">{acc.name}</span>
-                    </div>
-                    <span className="text-[9px] font-bold opacity-75 shrink-0">Entrar ➔</span>
-                  </button>
-                );
-              })}
+              ].map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  onClick={() => {
+                    setEmail(acc.email);
+                    setPassword(DEFAULT_ADMIN_PASSWORD);
+                    playHapticSound('click');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer flex items-center gap-1 ${
+                    email.toLowerCase() === acc.email.toLowerCase()
+                      ? 'bg-[#2a14b4] text-white border-[#2a14b4] shadow-2xs'
+                      : 'bg-white hover:bg-[#eaedff] text-[#334155] border-[#cbd5e1]'
+                  }`}
+                >
+                  <Crown className="w-3 h-3 text-amber-500" />
+                  <span>{acc.name}</span>
+                </button>
+              ))}
             </div>
           </div>
 

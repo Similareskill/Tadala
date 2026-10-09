@@ -32,54 +32,20 @@ export const DEFAULT_ADMIN_PASSWORD = 'admin123';
 
 // Normalizer to accept aliases like 'tadalamanu', 'thorinha', etc.
 export function normalizeAdminEmail(rawEmail: string): string {
-  const clean = (rawEmail || '').trim().toLowerCase().replace(/\s+/g, '');
-  if (
-    clean === 'tadalamanu' ||
-    clean === 'manu' ||
-    clean === 'admin@tadalamanu' ||
-    clean === 'tadalamanu.com' ||
-    clean === 'admin@tadalamanu.com' ||
-    clean === 'tadalamanu@gmail.com' ||
-    clean === 'manu@tadalamanu.com' ||
-    clean === 'manu@gmail.com' ||
-    clean === 'admin.manu' ||
-    clean === 'adminmanu'
-  ) {
+  const clean = (rawEmail || '').trim().toLowerCase();
+  if (clean === 'tadalamanu' || clean === 'manu' || clean === 'admin@tadalamanu' || clean === 'tadalamanu.com') {
     return 'admin@tadalamanu.com';
   }
-  if (
-    clean === 'tadalathorinha' ||
-    clean === 'thorinha' ||
-    clean === 'thor' ||
-    clean === 'admin@tadalathorinha' ||
-    clean === 'tadalathorinha.com' ||
-    clean === 'admin@tadalathorinha.com' ||
-    clean === 'tadalathorinha@gmail.com' ||
-    clean === 'thorinha@tadalathorinha.com' ||
-    clean === 'thorinha@gmail.com' ||
-    clean === 'admin.thorinha' ||
-    clean === 'adminthorinha'
-  ) {
+  if (clean === 'tadalathorinha' || clean === 'thorinha' || clean === 'admin@tadalathorinha' || clean === 'tadalathorinha.com') {
     return 'admin@tadalathorinha.com';
   }
-  if (
-    clean === 'tadalatorean' ||
-    clean === 'torean' ||
-    clean === 'admin@tadalatorean' ||
-    clean === 'tadalatorean.com' ||
-    clean === 'admin@tadalatorean.com'
-  ) {
+  if (clean === 'tadalatorean' || clean === 'torean' || clean === 'admin@tadalatorean' || clean === 'tadalatorean.com') {
     return 'admin@tadalatorean.com';
   }
-  if (
-    clean === 'leandro' ||
-    clean === 'leandrotemoteo' ||
-    clean === 'leandrotemoteo123' ||
-    clean === 'leandrotemoteo123@gmail.com'
-  ) {
+  if (clean === 'leandro' || clean === 'leandrotemoteo' || clean === 'leandrotemoteo123') {
     return 'leandrotemoteo123@gmail.com';
   }
-  if (clean === 'admin' || clean === 'gestaodecompras' || clean === 'admin@gestaodecompras.com') {
+  if (clean === 'admin' || clean === 'gestaodecompras') {
     return 'admin@gestaodecompras.com';
   }
   return clean;
@@ -152,79 +118,17 @@ export const adminAuthService = {
   // Login as admin using Email and Password
   async login(
     email: string,
-    pass?: string,
+    pass: string,
     remember: boolean = true
   ): Promise<{ success: boolean; user?: AdminAccount; error?: string }> {
     const cleanEmail = normalizeAdminEmail(email);
-    const cleanPass = (pass || DEFAULT_ADMIN_PASSWORD).trim();
+    const cleanPass = pass.trim();
 
-    if (!cleanEmail) {
-      return { success: false, error: 'Por favor, informe o e-mail do Administrador.' };
+    if (!cleanEmail || !cleanPass) {
+      return { success: false, error: 'Por favor, informe o e-mail e a senha do Administrador.' };
     }
 
     const isPresetAdmin = ADMIN_PRESET_EMAILS.some((e) => e.toLowerCase() === cleanEmail);
-
-    const getDisplayName = (emailStr: string): string => {
-      if (emailStr === 'admin@tadalamanu.com') return 'Manu (Admin)';
-      if (emailStr === 'admin@tadalathorinha.com') return 'Thorinha (Admin)';
-      if (emailStr === 'admin@tadalatorean.com') return 'Torean (Admin)';
-      if (emailStr === USER_ADMIN_EMAIL.toLowerCase()) return 'Leandro (Admin)';
-      if (emailStr === DEFAULT_ADMIN_EMAIL.toLowerCase()) return 'Administrador Principal';
-      return 'Administrador';
-    };
-
-    // Guaranteed instant authorization for authorized preset admin accounts (Thorinha, Manu, Leandro, etc.)
-    if (isPresetAdmin) {
-      const adminAccount: AdminAccount = {
-        email: cleanEmail,
-        name: getDisplayName(cleanEmail),
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-      };
-
-      if (remember) {
-        try {
-          localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(adminAccount));
-          localStorage.setItem('shopping_user_name', adminAccount.name || 'Admin');
-        } catch {}
-      } else {
-        try {
-          sessionStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(adminAccount));
-          sessionStorage.setItem('shopping_user_name', adminAccount.name || 'Admin');
-        } catch {}
-      }
-
-      // Sync Firestore admin config in background safely without blocking
-      (async () => {
-        try {
-          const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
-          await setDoc(
-            configRef,
-            {
-              adminEmails: ADMIN_PRESET_EMAILS,
-              lastAdminLogin: cleanEmail,
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
-        } catch {}
-      })();
-
-      // Attempt background Firebase Auth session if possible
-      (async () => {
-        try {
-          await signInWithEmailAndPassword(auth, cleanEmail, cleanPass || DEFAULT_ADMIN_PASSWORD);
-        } catch {
-          try {
-            await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass || DEFAULT_ADMIN_PASSWORD);
-          } catch {}
-        }
-      })();
-
-      notifyListeners();
-      return { success: true, user: adminAccount };
-    }
 
     // 1. Try Firebase Auth first if user account exists
     let firebaseUser = null;
@@ -233,11 +137,15 @@ export const adminAuthService = {
       firebaseUser = cred.user;
     } catch (firebaseErr: unknown) {
       const errCode = (firebaseErr as { code?: string })?.code;
+      console.log('Firebase auth attempt info:', errCode);
+      // Auto-create in Firebase Auth if provider allows and user not found
       if (errCode === 'auth/user-not-found' || errCode === 'auth/invalid-credential') {
         try {
           const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
           firebaseUser = newCred.user;
-        } catch {}
+        } catch {
+          // expected if email signup disabled
+        }
       }
     }
 
@@ -254,6 +162,7 @@ export const adminAuthService = {
         const masterHash = data.passwordHash || DEFAULT_HASH;
 
         const emailMatch =
+          isPresetAdmin ||
           allowedEmails.includes(cleanEmail) ||
           cleanEmail === (data.primaryEmail || '').toLowerCase();
 
@@ -264,30 +173,77 @@ export const adminAuthService = {
             cleanPass.toLowerCase() === 'admin' ||
             cleanPass === '123456' ||
             cleanPass === '1234' ||
-            cleanPass.length >= 3
+            (isPresetAdmin && cleanPass.length >= 3)
           ) {
             firestoreAdminMatches = true;
             storedAdminName = data.adminName || 'Administrador';
           }
         }
+
+        // Sync all preset admin emails to Firestore doc
+        const needsEmailSync = ADMIN_PRESET_EMAILS.some((e) => !allowedEmails.includes(e.toLowerCase()));
+        if (needsEmailSync) {
+          setDoc(
+            configRef,
+            {
+              adminEmails: Array.from(new Set([...allowedEmails, ...ADMIN_PRESET_EMAILS])),
+            },
+            { merge: true }
+          ).catch(() => {});
+        }
+      } else {
+        // Initialize config doc if it doesn't exist
+        await setDoc(
+          configRef,
+          {
+            primaryEmail: DEFAULT_ADMIN_EMAIL,
+            adminEmails: ADMIN_PRESET_EMAILS,
+            adminName: 'Administrador Principal',
+            passwordHash: DEFAULT_HASH,
+            createdAt: new Date().toISOString(),
+          },
+          { merge: true }
+        ).catch(() => {});
+
+        if (isPresetAdmin) {
+          firestoreAdminMatches = true;
+        }
       }
     } catch (fsErr) {
-      console.warn('Could not read admin config doc in Firestore:', fsErr);
+      console.warn('Could not read/write admin config doc in Firestore:', fsErr);
     }
 
-    const isAuthenticatedAdmin = Boolean(firebaseUser) || firestoreAdminMatches;
+    // 3. Check hardcoded/local fallback admin credentials
+    const isHardcodedAdmin =
+      isPresetAdmin &&
+      (cleanPass === DEFAULT_ADMIN_PASSWORD ||
+        cleanPass.toLowerCase() === 'admin' ||
+        cleanPass === '123456' ||
+        cleanPass.length >= 3);
+
+    // 4. Check if authenticated via Firebase Auth OR Firestore matching OR hardcoded fallback
+    const isAuthenticatedAdmin = Boolean(firebaseUser) || firestoreAdminMatches || isHardcodedAdmin;
 
     if (!isAuthenticatedAdmin) {
       return {
         success: false,
         error:
-          'E-mail ou senha de Administrador incorretos. Verifique suas credenciais.',
+          'E-mail ou senha de Administrador incorretos. Verifique suas credenciais ou use a senha padrão.',
       };
     }
 
+    const getDisplayName = (emailStr: string): string => {
+      if (emailStr === 'admin@tadalamanu.com') return 'Manu (Admin)';
+      if (emailStr === 'admin@tadalathorinha.com') return 'Thorinha (Admin)';
+      if (emailStr === 'admin@tadalatorean.com') return 'Torean (Admin)';
+      if (emailStr === USER_ADMIN_EMAIL.toLowerCase()) return 'Leandro (Admin)';
+      if (emailStr === DEFAULT_ADMIN_EMAIL.toLowerCase()) return 'Administrador Principal';
+      return storedAdminName;
+    };
+
     const adminAccount: AdminAccount = {
       email: cleanEmail,
-      name: firebaseUser?.displayName || getDisplayName(cleanEmail) || storedAdminName,
+      name: firebaseUser?.displayName || getDisplayName(cleanEmail),
       role: 'admin',
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),

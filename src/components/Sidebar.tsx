@@ -15,11 +15,10 @@ import {
   Trophy,
   Flame,
   Zap,
-  Radio,
 } from 'lucide-react';
 import { AdminAccount } from '../types/shopping';
 
-export type TabType = 'lista' | 'historico' | 'checkin' | 'rank' | 'status' | 'voicechat' | 'configuracoes';
+export type TabType = 'lista' | 'historico' | 'checkin' | 'rank' | 'status' | 'configuracoes';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -195,29 +194,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             ⚔️ Stats
-          </span>
-        </button>
-
-        <button
-          onClick={() => onSelectTab('voicechat')}
-          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
-            currentTab === 'voicechat'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <Radio className="w-4 h-4 text-emerald-500 animate-pulse" />
-            <span>VoiceChat</span>
-          </div>
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5 ${
-              currentTab === 'voicechat'
-                ? 'bg-emerald-400 text-emerald-950'
-                : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-300/40'
-            }`}
-          >
-            🎙️ Voz & Chat
           </span>
         </button>
 
