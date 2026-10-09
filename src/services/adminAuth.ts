@@ -19,37 +19,7 @@ const SYSTEM_COLLECTION = 'system_config';
 // Default Admin credentials fallback
 export const DEFAULT_ADMIN_EMAIL = 'admin@gestaodecompras.com';
 export const USER_ADMIN_EMAIL = 'leandrotemoteo123@gmail.com';
-
-export const ADMIN_PRESET_EMAILS: string[] = [
-  'admin@gestaodecompras.com',
-  'admin@tadalamanu.com',
-  'admin@tadalathorinha.com',
-  'admin@tadalatorean.com',
-  'leandrotemoteo123@gmail.com',
-];
-
 export const DEFAULT_ADMIN_PASSWORD = 'admin123';
-
-// Normalizer to accept aliases like 'tadalamanu', 'thorinha', etc.
-export function normalizeAdminEmail(rawEmail: string): string {
-  const clean = (rawEmail || '').trim().toLowerCase();
-  if (clean === 'tadalamanu' || clean === 'manu' || clean === 'admin@tadalamanu' || clean === 'tadalamanu.com') {
-    return 'admin@tadalamanu.com';
-  }
-  if (clean === 'tadalathorinha' || clean === 'thorinha' || clean === 'admin@tadalathorinha' || clean === 'tadalathorinha.com') {
-    return 'admin@tadalathorinha.com';
-  }
-  if (clean === 'tadalatorean' || clean === 'torean' || clean === 'admin@tadalatorean' || clean === 'tadalatorean.com') {
-    return 'admin@tadalatorean.com';
-  }
-  if (clean === 'leandro' || clean === 'leandrotemoteo' || clean === 'leandrotemoteo123') {
-    return 'leandrotemoteo123@gmail.com';
-  }
-  if (clean === 'admin' || clean === 'gestaodecompras') {
-    return 'admin@gestaodecompras.com';
-  }
-  return clean;
-}
 
 // Simple client-side hash helper for fallback credential storage
 function hashPassword(str: string): string {
@@ -80,12 +50,6 @@ function notifyListeners() {
 }
 
 export const adminAuthService = {
-  // Check if an email is an authorized admin email
-  isAdminEmail(email: string): boolean {
-    const norm = normalizeAdminEmail(email);
-    return ADMIN_PRESET_EMAILS.some((e) => e.toLowerCase() === norm);
-  },
-
   // Listen to admin status changes
   subscribe(listener: AdminListener): () => void {
     listeners.add(listener);
@@ -121,14 +85,12 @@ export const adminAuthService = {
     pass: string,
     remember: boolean = true
   ): Promise<{ success: boolean; user?: AdminAccount; error?: string }> {
-    const cleanEmail = normalizeAdminEmail(email);
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPass = pass.trim();
 
     if (!cleanEmail || !cleanPass) {
       return { success: false, error: 'Por favor, informe o e-mail e a senha do Administrador.' };
     }
-
-    const isPresetAdmin = ADMIN_PRESET_EMAILS.some((e) => e.toLowerCase() === cleanEmail);
 
     // 1. Try Firebase Auth first if user account exists
     let firebaseUser = null;
@@ -136,17 +98,10 @@ export const adminAuthService = {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
       firebaseUser = cred.user;
     } catch (firebaseErr: unknown) {
+      // If Firebase Auth fails with operation-not-allowed or user-not-found,
+      // we check our Firestore / Local Admin credentials fallback.
       const errCode = (firebaseErr as { code?: string })?.code;
       console.log('Firebase auth attempt info:', errCode);
-      // Auto-create in Firebase Auth if provider allows and user not found
-      if (errCode === 'auth/user-not-found' || errCode === 'auth/invalid-credential') {
-        try {
-          const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
-          firebaseUser = newCred.user;
-        } catch {
-          // expected if email signup disabled
-        }
-      }
     }
 
     // 2. Check credentials against Firestore system_config
@@ -162,34 +117,16 @@ export const adminAuthService = {
         const masterHash = data.passwordHash || DEFAULT_HASH;
 
         const emailMatch =
-          isPresetAdmin ||
           allowedEmails.includes(cleanEmail) ||
-          cleanEmail === (data.primaryEmail || '').toLowerCase();
+          cleanEmail === (data.primaryEmail || '').toLowerCase() ||
+          cleanEmail === DEFAULT_ADMIN_EMAIL.toLowerCase() ||
+          cleanEmail === USER_ADMIN_EMAIL.toLowerCase();
 
         if (emailMatch) {
-          if (
-            cleanPass === DEFAULT_ADMIN_PASSWORD ||
-            hashPassword(cleanPass) === masterHash ||
-            cleanPass.toLowerCase() === 'admin' ||
-            cleanPass === '123456' ||
-            cleanPass === '1234' ||
-            (isPresetAdmin && cleanPass.length >= 3)
-          ) {
+          if (hashPassword(cleanPass) === masterHash || cleanPass === DEFAULT_ADMIN_PASSWORD) {
             firestoreAdminMatches = true;
             storedAdminName = data.adminName || 'Administrador';
           }
-        }
-
-        // Sync all preset admin emails to Firestore doc
-        const needsEmailSync = ADMIN_PRESET_EMAILS.some((e) => !allowedEmails.includes(e.toLowerCase()));
-        if (needsEmailSync) {
-          setDoc(
-            configRef,
-            {
-              adminEmails: Array.from(new Set([...allowedEmails, ...ADMIN_PRESET_EMAILS])),
-            },
-            { merge: true }
-          ).catch(() => {});
         }
       } else {
         // Initialize config doc if it doesn't exist
@@ -197,17 +134,13 @@ export const adminAuthService = {
           configRef,
           {
             primaryEmail: DEFAULT_ADMIN_EMAIL,
-            adminEmails: ADMIN_PRESET_EMAILS,
+            adminEmails: [DEFAULT_ADMIN_EMAIL, USER_ADMIN_EMAIL],
             adminName: 'Administrador Principal',
             passwordHash: DEFAULT_HASH,
             createdAt: new Date().toISOString(),
           },
           { merge: true }
-        ).catch(() => {});
-
-        if (isPresetAdmin) {
-          firestoreAdminMatches = true;
-        }
+        );
       }
     } catch (fsErr) {
       console.warn('Could not read/write admin config doc in Firestore:', fsErr);
@@ -215,11 +148,8 @@ export const adminAuthService = {
 
     // 3. Check hardcoded/local fallback admin credentials
     const isHardcodedAdmin =
-      isPresetAdmin &&
-      (cleanPass === DEFAULT_ADMIN_PASSWORD ||
-        cleanPass.toLowerCase() === 'admin' ||
-        cleanPass === '123456' ||
-        cleanPass.length >= 3);
+      (cleanEmail === DEFAULT_ADMIN_EMAIL.toLowerCase() || cleanEmail === USER_ADMIN_EMAIL.toLowerCase()) &&
+      cleanPass === DEFAULT_ADMIN_PASSWORD;
 
     // 4. Check if authenticated via Firebase Auth OR Firestore matching OR hardcoded fallback
     const isAuthenticatedAdmin = Boolean(firebaseUser) || firestoreAdminMatches || isHardcodedAdmin;
@@ -232,18 +162,11 @@ export const adminAuthService = {
       };
     }
 
-    const getDisplayName = (emailStr: string): string => {
-      if (emailStr === 'admin@tadalamanu.com') return 'Manu (Admin)';
-      if (emailStr === 'admin@tadalathorinha.com') return 'Thorinha (Admin)';
-      if (emailStr === 'admin@tadalatorean.com') return 'Torean (Admin)';
-      if (emailStr === USER_ADMIN_EMAIL.toLowerCase()) return 'Leandro (Admin)';
-      if (emailStr === DEFAULT_ADMIN_EMAIL.toLowerCase()) return 'Administrador Principal';
-      return storedAdminName;
-    };
-
     const adminAccount: AdminAccount = {
       email: cleanEmail,
-      name: firebaseUser?.displayName || getDisplayName(cleanEmail),
+      name:
+        firebaseUser?.displayName ||
+        (cleanEmail === USER_ADMIN_EMAIL.toLowerCase() ? 'Leandro (Admin)' : storedAdminName),
       role: 'admin',
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),

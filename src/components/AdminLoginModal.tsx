@@ -14,7 +14,7 @@ import {
   KeyRound,
   UserCheck,
 } from 'lucide-react';
-import { adminAuthService, ADMIN_PRESET_EMAILS, DEFAULT_ADMIN_PASSWORD } from '../services/adminAuth';
+import { adminAuthService } from '../services/adminAuth';
 import { activityLogService } from '../services/activityLogService';
 import { playHapticSound } from '../utils/helpers';
 
@@ -128,41 +128,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </div>
           )}
 
-          {/* Quick Admin Account Selector */}
-          <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-2xl p-3 space-y-1.5">
-            <div className="text-[11px] font-bold text-[#475569] flex items-center justify-between">
-              <span>Contas de Admin Disponíveis:</span>
-              <span className="text-[10px] text-[#94a3b8] font-normal">Clique para preencher</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                { email: 'admin@tadalamanu.com', name: 'Manu' },
-                { email: 'admin@tadalathorinha.com', name: 'Thorinha' },
-                { email: 'admin@tadalatorean.com', name: 'Torean' },
-                { email: 'leandrotemoteo123@gmail.com', name: 'Leandro' },
-                { email: 'admin@gestaodecompras.com', name: 'Geral' },
-              ].map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => {
-                    setEmail(acc.email);
-                    setPassword(DEFAULT_ADMIN_PASSWORD);
-                    playHapticSound('click');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer flex items-center gap-1 ${
-                    email.toLowerCase() === acc.email.toLowerCase()
-                      ? 'bg-[#2a14b4] text-white border-[#2a14b4] shadow-2xs'
-                      : 'bg-white hover:bg-[#eaedff] text-[#334155] border-[#cbd5e1]'
-                  }`}
-                >
-                  <Crown className="w-3 h-3 text-amber-500" />
-                  <span>{acc.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Email input */}
           <div>
             <label className="block text-xs font-bold text-[#334155] mb-1">
@@ -177,7 +142,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@tadalamanu.com"
+                placeholder="admin@gestaodecompras.com"
                 className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-[#e2e8f0] focus:border-[#2a14b4] focus:bg-white rounded-xl text-xs font-medium text-[#131b2e] transition-all focus:outline-none"
               />
             </div>
