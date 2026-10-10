@@ -195,6 +195,12 @@
     "/member_statuses/{statusId}": {
       "schema": "MemberStatus",
       "description": "Member combat status records with Dano, Defesa, Acerto, and Power"
+    },
+    "/household_members/{memberId}": {
+      "description": "Household members collection for shared member tags across devices"
+    },
+    "/activity_logs/{logId}": {
+      "description": "Activity logs collection for system audit and historical tracking"
     }
   }
 }

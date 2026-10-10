@@ -154,6 +154,8 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [isRenamingList, setIsRenamingList] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
 
   // Save to localStorage whenever data changes
   useEffect(() => {
@@ -1041,20 +1043,45 @@ export default function App() {
                 {/* Title + Stats Badge + Last Updated */}
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1
-                      className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#131b2e] tracking-tight font-display hover:text-[#2a14b4] transition-colors cursor-pointer select-text"
-                      title={isAdmin ? "Clique duas vezes para renomear" : "Apenas Administrador pode renomear a lista"}
-                      onDoubleClick={() => {
-                        if (!requireAdmin('Apenas o Administrador pode renomear o título da lista.')) return;
-                        const newName = prompt('Renomear lista de itens:', settings.listName);
-                        if (newName && newName.trim()) {
-                          setSettings((prev) => ({ ...prev, listName: newName.trim() }));
-                          showToast('Título da lista atualizado!');
-                        }
-                      }}
-                    >
-                      {settings.listName}
-                    </h1>
+                    {isRenamingList ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={renameInput}
+                        onChange={(e) => setRenameInput(e.target.value)}
+                        onBlur={() => {
+                          if (renameInput.trim()) {
+                            setSettings((prev) => ({ ...prev, listName: renameInput.trim() }));
+                            showToast('Título da lista atualizado!');
+                          }
+                          setIsRenamingList(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (renameInput.trim()) {
+                              setSettings((prev) => ({ ...prev, listName: renameInput.trim() }));
+                              showToast('Título da lista atualizado!');
+                            }
+                            setIsRenamingList(false);
+                          } else if (e.key === 'Escape') {
+                            setIsRenamingList(false);
+                          }
+                        }}
+                        className="text-2xl sm:text-3xl font-extrabold text-[#131b2e] bg-white border border-[#2a14b4] rounded-xl px-2.5 py-1 focus:outline-none"
+                      />
+                    ) : (
+                      <h1
+                        className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#131b2e] tracking-tight font-display hover:text-[#2a14b4] transition-colors cursor-pointer select-text"
+                        title={isAdmin ? "Clique duas vezes para renomear" : "Apenas Administrador pode renomear a lista"}
+                        onDoubleClick={() => {
+                          if (!requireAdmin('Apenas o Administrador pode renomear o título da lista.')) return;
+                          setRenameInput(settings.listName);
+                          setIsRenamingList(true);
+                        }}
+                      >
+                        {settings.listName}
+                      </h1>
+                    )}
 
                     {/* Stats pill matching screenshot */}
                     <div className="inline-flex items-center gap-2 bg-[#eaedff] text-[#2a14b4] px-3 py-1 rounded-full text-xs font-bold border border-[#d2d9f4]">

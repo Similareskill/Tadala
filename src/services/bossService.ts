@@ -506,6 +506,157 @@ export const bossService = {
     return synced;
   },
 
+  // Add bonus points (+3 pts) to all boss events and check-ins that are currently OPEN
+  // Add bonus points (+3 pts) across all open bosses and their already created check-ins
+  async addBonusPointsToOpenCheckins(
+    bonus: number = 3,
+    overrideBosses?: BossEvent[],
+    overrideCheckins?: BossCheckin[]
+  ): Promise<{ affectedBossesCount: number; affectedCheckinsCount: number; affectedBossNames: string[] }> {
+    const allBosses =
+      overrideBosses && overrideBosses.length > 0
+        ? overrideBosses
+        : cachedBossEvents.length > 0
+        ? cachedBossEvents
+        : getStoredLocalBosses();
+
+    const openBosses = allBosses.filter((b) =>
+      this.getCheckinWindowStatus(b.scheduledTime, b.checkinEndTime, b.checkinStartTime).isOpen
+    );
+
+    if (openBosses.length === 0) {
+      return { affectedBossesCount: 0, affectedCheckinsCount: 0, affectedBossNames: [] };
+    }
+
+    const openBossIds = new Set(openBosses.map((b) => b.id));
+    const affectedBossNames: string[] = [];
+
+    // 1. Update points for open bosses in local storage and Firestore
+    const updatedBosses = allBosses.map((b) => {
+      if (openBossIds.has(b.id)) {
+        affectedBossNames.push(b.bossName);
+        const newPts = (b.points || 0) + bonus;
+        const updated = { ...b, points: newPts };
+        setDoc(doc(db, BOSS_EVENTS_COLLECTION, b.id), updated).catch(() => {});
+        return updated;
+      }
+      return b;
+    });
+
+    saveLocalBosses(updatedBosses);
+    cachedBossEvents = updatedBosses;
+
+    // 2. Update points for all check-ins already created for these open bosses
+    const allCheckins =
+      overrideCheckins && overrideCheckins.length > 0
+        ? overrideCheckins
+        : cachedCheckins.length > 0
+        ? cachedCheckins
+        : getStoredLocalCheckins();
+
+    let affectedCheckinsCount = 0;
+
+    const updatedCheckins = allCheckins.map((chk) => {
+      if (openBossIds.has(chk.bossId)) {
+        affectedCheckinsCount++;
+        const newPts = (chk.points || 0) + bonus;
+        const updated = { ...chk, points: newPts };
+        setDoc(doc(db, BOSS_CHECKINS_COLLECTION, chk.id), updated).catch(() => {});
+        return updated;
+      }
+      return chk;
+    });
+
+    saveLocalCheckins(updatedCheckins);
+    cachedCheckins = updatedCheckins;
+
+    return {
+      affectedBossesCount: openBosses.length,
+      affectedCheckinsCount,
+      affectedBossNames,
+    };
+  },
+
+  // Add bonus points (+3 pts) to a single specific open boss and its confirmed check-ins
+  async addBonusPointsToSingleBoss(
+    bossId: string,
+    bonus: number = 3,
+    overrideBosses?: BossEvent[],
+    overrideCheckins?: BossCheckin[]
+  ): Promise<{ success: boolean; newPoints: number; bossName: string; checkinsCount: number }> {
+    const allBosses =
+      overrideBosses && overrideBosses.length > 0
+        ? overrideBosses
+        : cachedBossEvents.length > 0
+        ? cachedBossEvents
+        : getStoredLocalBosses();
+
+    const boss = allBosses.find((b) => b.id === bossId);
+    if (!boss) return { success: false, newPoints: 0, bossName: '', checkinsCount: 0 };
+
+    const newPoints = (boss.points || 0) + bonus;
+    const updatedBoss = { ...boss, points: newPoints };
+
+    const updatedBosses = allBosses.map((b) => (b.id === bossId ? updatedBoss : b));
+    saveLocalBosses(updatedBosses);
+    cachedBossEvents = updatedBosses;
+
+    setDoc(doc(db, BOSS_EVENTS_COLLECTION, bossId), updatedBoss).catch(() => {});
+
+    // Update all check-ins already created for this boss
+    const allCheckins =
+      overrideCheckins && overrideCheckins.length > 0
+        ? overrideCheckins
+        : cachedCheckins.length > 0
+        ? cachedCheckins
+        : getStoredLocalCheckins();
+
+    let checkinsCount = 0;
+
+    const updatedCheckins = allCheckins.map((c) => {
+      if (c.bossId === bossId) {
+        checkinsCount++;
+        const updated = { ...c, points: (c.points || 0) + bonus };
+        setDoc(doc(db, BOSS_CHECKINS_COLLECTION, c.id), updated).catch(() => {});
+        return updated;
+      }
+      return c;
+    });
+
+    saveLocalCheckins(updatedCheckins);
+    cachedCheckins = updatedCheckins;
+
+    return { success: true, newPoints, bossName: boss.bossName, checkinsCount };
+  },
+
+  // Add bonus points (+3 pts) to a single specific check-in
+  async addBonusPointsToSingleCheckin(
+    checkinId: string,
+    bonus: number = 3,
+    overrideCheckins?: BossCheckin[]
+  ): Promise<{ success: boolean; newPoints: number; userName: string; bossName: string }> {
+    const allCheckins =
+      overrideCheckins && overrideCheckins.length > 0
+        ? overrideCheckins
+        : cachedCheckins.length > 0
+        ? cachedCheckins
+        : getStoredLocalCheckins();
+
+    const chk = allCheckins.find((c) => c.id === checkinId);
+    if (!chk) return { success: false, newPoints: 0, userName: '', bossName: '' };
+
+    const newPoints = (chk.points || 0) + bonus;
+    const updated = { ...chk, points: newPoints };
+    const updatedCheckins = allCheckins.map((c) => (c.id === checkinId ? updated : c));
+
+    saveLocalCheckins(updatedCheckins);
+    cachedCheckins = updatedCheckins;
+
+    setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), updated).catch(() => {});
+
+    return { success: true, newPoints, userName: chk.userName, bossName: chk.bossName };
+  },
+
   // Helper to determine the check-in window (manual or fallback)
   getCheckinWindowStatus(
     scheduledTime: string,

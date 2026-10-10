@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { authService } from '../services/firebase';
+import { adminAuthService, normalizeAdminEmail } from '../services/adminAuth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -93,10 +94,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         setErrorMessage('Por favor, informe um nome ou apelido para identificar seus itens.');
         return;
       }
+      const norm = normalizeAdminEmail(displayName.trim());
+      if (adminAuthService.isAdminEmail(norm)) {
+        await adminAuthService.login(norm, undefined, true);
+      }
       // Save local nickname profile
       localStorage.setItem('shopping_user_name', displayName.trim());
       onSuccess(`Conectado como ${displayName.trim()}! Seus itens são sincronizados em tempo real.`);
       onClose();
+      return;
+    }
+
+    const cleanInputEmail = normalizeAdminEmail(email.trim());
+
+    // If it's an admin email, immediately log in as admin with full permissions!
+    if (adminAuthService.isAdminEmail(cleanInputEmail)) {
+      setLoading(true);
+      try {
+        const res = await adminAuthService.login(cleanInputEmail, password, true);
+        if (res.success) {
+          const adminName = res.user?.name || displayName.trim() || cleanInputEmail.split('@')[0];
+          localStorage.setItem('shopping_user_name', adminName);
+          onSuccess(
+            `Administrador autenticado com sucesso! Bem-vindo(a) ${adminName}! Permissão total liberada.`
+          );
+          onClose();
+          return;
+        } else {
+          setErrorMessage(res.error || 'Falha ao autenticar administrador.');
+        }
+      } catch (err: unknown) {
+        setErrorMessage(
+          (err as { message?: string })?.message || 'Falha ao processar acesso de administrador.'
+        );
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -124,8 +157,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           `Conta criada com sucesso! Bem-vindo(a) ${displayName.trim() || email.split('@')[0]}!`
         );
       } else {
-        await authService.signIn(email.trim(), password);
-        onSuccess('Login realizado com sucesso!');
+        try {
+          await authService.signIn(email.trim(), password);
+          onSuccess('Login realizado com sucesso!');
+        } catch (authErr) {
+          // If Firebase Auth signIn fails, check if credentials match admin login
+          const adminCheck = await adminAuthService.login(cleanInputEmail, password, true);
+          if (adminCheck.success) {
+            localStorage.setItem('shopping_user_name', adminCheck.user?.name || email.split('@')[0]);
+            onSuccess(`Bem-vindo(a), Administrador ${adminCheck.user?.name || email}! Permissão total liberada.`);
+            onClose();
+            return;
+          }
+          throw authErr;
+        }
       }
       onClose();
     } catch (err) {

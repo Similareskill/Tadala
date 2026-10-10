@@ -414,6 +414,65 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
     setClearBossConfirmadosTarget(null);
   };
 
+  // State & Handlers to add +3 points to open check-ins
+  const [isAddingBonusPoints, setIsAddingBonusPoints] = useState(false);
+
+  const handleAddBonusToAllOpen = async () => {
+    if (!isAdmin) {
+      onRequireAdmin?.('adicionar +3 pontos aos check-ins em aberto');
+      return;
+    }
+    setIsAddingBonusPoints(true);
+    playHapticSound('toggle');
+    try {
+      const res = await bossService.addBonusPointsToOpenCheckins(3, bossEvents, checkins);
+      if (res.affectedBossesCount === 0) {
+        onShowToast('Nenhum boss com check-in aberto no momento para receber +3 pontos.');
+      } else {
+        activityLogService.log({
+          type: 'boss_checkin',
+          title: 'Pontos de Bônus Adicionados (+3 pts)',
+          description: `Adicionado +3 pontos aos check-ins já criados de ${res.affectedBossesCount} boss(es) em aberto (${res.affectedBossNames.join(', ')}) totalizando ${res.affectedCheckinsCount} check-in(s) atualizados.`,
+          userName: visitorName || 'Admin',
+          userRole: 'admin',
+        });
+        onShowToast(
+          `+3 pontos adicionados com sucesso aos check-ins de ${res.affectedBossesCount} boss(es) em aberto (${res.affectedCheckinsCount} presenças atualizadas)!`
+        );
+      }
+    } catch {
+      onShowToast('Erro ao adicionar pontos de bônus aos check-ins.');
+    } finally {
+      setIsAddingBonusPoints(false);
+    }
+  };
+
+  const handleAddBonusToBoss = async (boss: BossEvent) => {
+    if (!isAdmin) {
+      onRequireAdmin?.(`adicionar +3 pontos aos check-ins do boss "${boss.bossName}"`);
+      return;
+    }
+    setIsAddingBonusPoints(true);
+    playHapticSound('toggle');
+    try {
+      const res = await bossService.addBonusPointsToSingleBoss(boss.id, 3, bossEvents, checkins);
+      activityLogService.log({
+        type: 'boss_checkin',
+        title: 'Pontos de Bônus Adicionados (+3 pts)',
+        description: `Adicionado +3 pontos ao Boss "${boss.bossName}" (novo valor: ${res.newPoints} pts) e a todos os ${res.checkinsCount} check-in(s) já confirmados.`,
+        userName: visitorName || 'Admin',
+        userRole: 'admin',
+      });
+      onShowToast(
+        `+3 pontos adicionados ao Boss "${boss.bossName}" (total: ${res.newPoints} pts) e a todos os ${res.checkinsCount} check-in(s) já confirmados!`
+      );
+    } catch {
+      onShowToast('Erro ao adicionar pontos de bônus.');
+    } finally {
+      setIsAddingBonusPoints(false);
+    }
+  };
+
   // Helper for category badge colors
   const getCategoryBadgeClass = (category?: string) => {
     switch (category) {
@@ -492,7 +551,24 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Button to add +3 pts to all open check-ins */}
+          <button
+            type="button"
+            onClick={handleAddBonusToAllOpen}
+            disabled={isAddingBonusPoints}
+            className="px-3.5 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 active:scale-[0.98] text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer whitespace-nowrap border border-amber-300 disabled:opacity-50"
+            title={
+              isAdmin
+                ? "Adicionar +3 pontos aos check-ins já criados de todos os Bosses em aberto (Admin)"
+                : "Apenas o Administrador tem permissão para adicionar pontos (clique para autenticar)"
+            }
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-950 shrink-0" />
+            <span>+3 pts (Abertos)</span>
+            {!isAdmin && <Lock className="w-3 h-3 opacity-75 ml-0.5" />}
+          </button>
+
           <button
             type="button"
             onClick={onNavigateToRank}
@@ -533,15 +609,27 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
             </p>
           </div>
           {openBossesCount > 0 && (
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('reopen-checkin-popup'))}
-              className="mt-2 text-[10px] font-extrabold text-emerald-800 hover:text-emerald-950 bg-emerald-200/80 hover:bg-emerald-300 px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs self-start"
-              title="Abrir Pop-up de confirmação rápida de check-in"
-            >
-              <Flame className="w-3 h-3 text-emerald-700" />
-              <span>Ver Pop-up</span>
-            </button>
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('reopen-checkin-popup'))}
+                className="text-[10px] font-extrabold text-emerald-800 hover:text-emerald-950 bg-emerald-200/80 hover:bg-emerald-300 px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                title="Abrir Pop-up de confirmação rápida de check-in"
+              >
+                <Flame className="w-3 h-3 text-emerald-700" />
+                <span>Ver Pop-up</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddBonusToAllOpen}
+                disabled={isAddingBonusPoints}
+                className="text-[10px] font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-400 px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 shadow-2xs active:scale-95"
+                title="Adicionar +3 pontos aos check-ins já criados em aberto"
+              >
+                <Sparkles className="w-2.5 h-2.5 text-amber-900" />
+                <span>+3 pts</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -848,12 +936,32 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                       </h3>
                     </div>
 
-                    {/* Points Badge & Quick Delete Button */}
-                    <div className="shrink-0 flex items-center gap-1.5">
+                    {/* Points Badge, +3 pts Button & Quick Delete Button */}
+                    <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
                       <div className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 font-black text-sm shadow-2xs">
                         <Award className="w-4 h-4 text-amber-600" />
                         <span>+{boss.points} pts</span>
                       </div>
+
+                      {/* Button to add +3 pts to this open boss and its check-ins */}
+                      {status.isOpen && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddBonusToBoss(boss)}
+                          disabled={isAddingBonusPoints}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-black text-xs shadow-2xs border border-amber-300 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                          title={
+                            isAdmin
+                              ? `Adicionar +3 pontos aos check-ins já criados deste Boss "${boss.bossName}" (Admin)`
+                              : "Apenas o Administrador pode adicionar pontos (clique para autenticar)"
+                          }
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-950" />
+                          <span>+3 pts</span>
+                          {!isAdmin && <Lock className="w-2.5 h-2.5 opacity-75 ml-0.5" />}
+                        </button>
+                      )}
+
                       {isAdmin ? (
                         <button
                           type="button"
@@ -1104,14 +1212,31 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                       )}
                     </div>
                   ) : status.isOpen ? (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenCheckin(boss)}
-                      className="flex-1 sm:flex-initial px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-900/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                    >
-                      <Flame className="w-4 h-4 text-emerald-200" />
-                      <span>Confirmar Check-in (+{boss.points} pts)</span>
-                    </button>
+                    <div className="flex items-center gap-2 flex-1 sm:flex-initial flex-wrap justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleAddBonusToBoss(boss)}
+                        disabled={isAddingBonusPoints}
+                        className="px-3 py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-950 font-black text-xs rounded-xl border border-amber-300 flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                        title={
+                          isAdmin
+                            ? `Adicionar +3 pontos aos check-ins já criados deste Boss "${boss.bossName}" (Admin)`
+                            : "Apenas o Administrador pode adicionar pontos (clique para autenticar)"
+                        }
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-800" />
+                        <span>+3 pts Check-ins</span>
+                        {!isAdmin && <Lock className="w-2.5 h-2.5 opacity-75 ml-0.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCheckin(boss)}
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-900/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                      >
+                        <Flame className="w-4 h-4 text-emerald-200" />
+                        <span>Confirmar Check-in (+{boss.points} pts)</span>
+                      </button>
+                    </div>
                   ) : status.isUpcoming ? (
                     <button
                       type="button"

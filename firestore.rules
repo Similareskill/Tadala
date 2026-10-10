@@ -14,7 +14,7 @@ service cloud.firestore {
 
     // User profile documents
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if true;
     }
 
     // Shared shopping items collection

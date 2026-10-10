@@ -91,6 +91,7 @@ export const StatusView: React.FC<StatusViewProps> = ({
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdminAddModal, setShowAdminAddModal] = useState(false);
+  const [statusToDelete, setStatusToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Admin filter & search
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,23 +192,28 @@ export const StatusView: React.FC<StatusViewProps> = ({
   };
 
   // Admin delete status
-  const handleDeleteStatus = async (id: string, name: string) => {
+  const handleDeleteStatus = (id: string, name: string) => {
     if (!onRequireAdmin('Apenas administradores podem excluir registros de status.')) return;
-    if (confirm(`Tem certeza que deseja excluir o status do membro "${name}"?`)) {
-      try {
-        await statusService.deleteStatus(id);
-        playHapticSound('delete');
-        activityLogService.log({
-          type: 'status_update',
-          title: 'Status de Combate Excluído',
-          description: `O status de combate do membro "${name}" foi removido por Administrador.`,
-          userName: 'Administrador',
-          userRole: 'admin',
-        });
-        onShowToast(`Status de "${name}" excluído.`);
-      } catch (e) {
-        console.error('Error deleting status:', e);
-      }
+    setStatusToDelete({ id, name });
+  };
+
+  const handleConfirmDeleteStatus = async () => {
+    if (!statusToDelete) return;
+    try {
+      await statusService.deleteStatus(statusToDelete.id);
+      playHapticSound('delete');
+      activityLogService.log({
+        type: 'status_update',
+        title: 'Status de Combate Excluído',
+        description: `O status de combate do membro "${statusToDelete.name}" foi removido por Administrador.`,
+        userName: 'Administrador',
+        userRole: 'admin',
+      });
+      onShowToast(`Status de "${statusToDelete.name}" excluído.`);
+      setStatusToDelete(null);
+    } catch (e) {
+      console.error('Error deleting status:', e);
+      onShowToast('Erro ao excluir status.');
     }
   };
 
@@ -1407,6 +1413,40 @@ export const StatusView: React.FC<StatusViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Status Confirmation Modal */}
+      {statusToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-[#131b2e]">Excluir Registro de Status</h3>
+              <p className="text-xs text-[#64748b] mt-1">
+                Deseja realmente remover o status de combate do membro{' '}
+                <strong className="text-[#131b2e]">"{statusToDelete.name}"</strong>?
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setStatusToDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteStatus}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Sim, Excluir
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -20,7 +20,6 @@ import {
   onSnapshot,
   writeBatch,
   getDocs,
-  getDocFromServer,
   Unsubscribe,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -36,15 +35,6 @@ export const auth = getAuth(app);
 export const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
-
-// Test connection on boot
-(async () => {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch {
-    // Expected if document doesn't exist, ensures client connection initialized
-  }
-})();
 
 // Collections
 export const ITEMS_COLLECTION = 'shopping_items';
