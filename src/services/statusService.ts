@@ -233,6 +233,26 @@ export const statusService = {
     }
   },
 
+  async deleteMultipleStatuses(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    // Local optimistic update
+    const current = getStoredLocal().filter((s) => !idSet.has(s.id));
+    saveStoredLocal(current);
+
+    // Remote batch delete
+    try {
+      const batch = writeBatch(db);
+      ids.forEach((id) => {
+        const docRef = doc(db, STATUSES_COLLECTION, id);
+        batch.delete(docRef);
+      });
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, STATUSES_COLLECTION);
+    }
+  },
+
   getLocalStatusForMember(memberName?: string): MemberStatus | null {
     if (!memberName) return null;
     const current = getStoredLocal();

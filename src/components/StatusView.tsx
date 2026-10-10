@@ -18,6 +18,7 @@ import {
   Edit2,
   RefreshCw,
   AlertCircle,
+  CheckSquare,
   Trophy,
   UserCheck,
   ShieldCheck,
@@ -92,6 +93,9 @@ export const StatusView: React.FC<StatusViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdminAddModal, setShowAdminAddModal] = useState(false);
   const [statusToDelete, setStatusToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [selectedStatusIds, setSelectedStatusIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Admin filter & search
   const [searchQuery, setSearchQuery] = useState('');
@@ -249,6 +253,88 @@ export const StatusView: React.FC<StatusViewProps> = ({
 
     return result;
   }, [statuses, searchQuery, sortBy]);
+
+  // Bulk selection computed states
+  const visibleSelectedCount = useMemo(() => {
+    return filteredStatuses.filter((s) => selectedStatusIds.has(s.id)).length;
+  }, [filteredStatuses, selectedStatusIds]);
+
+  const allVisibleSelected = filteredStatuses.length > 0 && visibleSelectedCount === filteredStatuses.length;
+  const someVisibleSelected = visibleSelectedCount > 0 && !allVisibleSelected;
+
+  const handleToggleSelectStatus = (id: string) => {
+    playHapticSound('toggle');
+    setSelectedStatusIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    playHapticSound('toggle');
+    const visibleIds = filteredStatuses.map((s) => s.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedStatusIds.has(id));
+    if (allSelected) {
+      setSelectedStatusIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedStatusIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  };
+
+  const handleClearSelection = () => {
+    playHapticSound('click');
+    setSelectedStatusIds(new Set());
+  };
+
+  const handlePromptBulkDelete = () => {
+    if (!onRequireAdmin('Apenas administradores podem excluir registros de status.')) return;
+    if (selectedStatusIds.size === 0) {
+      onShowToast('Nenhum membro selecionado para exclusão.');
+      return;
+    }
+    setShowBulkDeleteModal(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (!onRequireAdmin('Apenas administradores podem excluir registros de status.')) return;
+    const count = selectedStatusIds.size;
+    if (count === 0) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const idsToDelete = Array.from(selectedStatusIds);
+      await statusService.deleteMultipleStatuses(idsToDelete);
+      playHapticSound('delete');
+      activityLogService.log({
+        type: 'status_update',
+        title: 'Múltiplos Status de Combate Excluídos',
+        description: `${count} registro(s) de membros foram removidos do quadro pelo Administrador.`,
+        userName: 'Administrador',
+        userRole: 'admin',
+      });
+      onShowToast(`${count} registro(s) de status removido(s) com sucesso.`);
+      setSelectedStatusIds(new Set());
+      setShowBulkDeleteModal(false);
+    } catch (err) {
+      console.error('Error deleting statuses:', err);
+      onShowToast('Erro ao excluir registros selecionados.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Admin KPI metrics
   const totalMembers = statuses.length;
@@ -861,6 +947,32 @@ export const StatusView: React.FC<StatusViewProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={handleToggleSelectAll}
+                className={`px-3.5 py-2 font-bold text-xs rounded-xl transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 border ${
+                  allVisibleSelected
+                    ? 'bg-[#2a14b4] text-white border-[#2a14b4]'
+                    : 'bg-white hover:bg-[#eaedff] text-[#334155] hover:text-[#2a14b4] border-[#cbd5e1]'
+                }`}
+                title="Selecionar ou desmarcar todos os membros visíveis"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>{allVisibleSelected ? 'Desmarcar Todos' : 'Selecionar Todos'}</span>
+              </button>
+
+              {selectedStatusIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePromptBulkDelete}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-[0.99] text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 animate-in fade-in"
+                  title="Remover membros selecionados da lista"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remover Selecionados ({selectedStatusIds.size})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
                 onClick={handleExportCSV}
                 className="px-3.5 py-2 bg-white hover:bg-[#f8fafc] text-[#334155] border border-[#cbd5e1] font-semibold text-xs rounded-xl transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
                 title="Exportar todos os status em formato CSV"
@@ -890,6 +1002,47 @@ export const StatusView: React.FC<StatusViewProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Bulk Action Bar when members are selected */}
+          {selectedStatusIds.size > 0 && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xs shadow-2xs">
+                  {selectedStatusIds.size}
+                </span>
+                <div>
+                  <div className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
+                    <span>
+                      {selectedStatusIds.size === 1
+                        ? '1 membro selecionado'
+                        : `${selectedStatusIds.size} membros selecionados`}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-rose-700 font-medium">
+                    Clique em "Remover Selecionados" para excluir todos os registros marcados de uma vez.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Desmarcar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePromptBulkDelete}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remover ({selectedStatusIds.size})</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Admin KPI Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -1008,6 +1161,18 @@ export const StatusView: React.FC<StatusViewProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#f8fafc] text-[#64748b] font-bold border-b border-[#e2e8f0] uppercase tracking-wider text-[11px]">
                   <tr>
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someVisibleSelected;
+                        }}
+                        onChange={handleToggleSelectAll}
+                        title={allVisibleSelected ? 'Desmarcar todos' : 'Selecionar todos os membros visíveis'}
+                        className="w-4 h-4 rounded border-[#cbd5e1] text-[#2a14b4] focus:ring-0 cursor-pointer accent-[#2a14b4]"
+                      />
+                    </th>
                     <th className="py-3 px-3 w-12 text-center">#</th>
                     <th className="py-3 px-4">Membro & Classe</th>
                     <th className="py-3 px-3 text-center">Level</th>
@@ -1055,8 +1220,23 @@ export const StatusView: React.FC<StatusViewProps> = ({
                     return (
                       <tr
                         key={st.id}
-                        className="hover:bg-[#f8fafc] transition-colors group"
+                        className={`transition-colors group ${
+                          selectedStatusIds.has(st.id)
+                            ? 'bg-indigo-50/80 border-l-4 border-l-[#2a14b4]'
+                            : 'hover:bg-[#f8fafc]'
+                        }`}
                       >
+                        {/* Select Checkbox */}
+                        <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedStatusIds.has(st.id)}
+                            onChange={() => handleToggleSelectStatus(st.id)}
+                            title={selectedStatusIds.has(st.id) ? 'Desmarcar membro' : 'Selecionar membro'}
+                            className="w-4 h-4 rounded border-[#cbd5e1] text-[#2a14b4] focus:ring-0 cursor-pointer accent-[#2a14b4]"
+                          />
+                        </td>
+
                         {/* Rank Position */}
                         <td className="py-3 px-3 text-center font-bold">
                           {isTop1 ? (
@@ -1445,6 +1625,50 @@ export const StatusView: React.FC<StatusViewProps> = ({
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Status Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-[#131b2e]">Remover Membros Selecionados</h3>
+              <p className="text-xs text-[#64748b] mt-1.5">
+                Tem certeza que deseja remover os registros de status de{' '}
+                <strong className="text-rose-700">{selectedStatusIds.size}</strong>{' '}
+                {selectedStatusIds.size === 1 ? 'membro selecionado' : 'membros selecionados'}?
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={isBulkDeleting}
+                className="px-4 py-2 text-xs font-semibold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                disabled={isBulkDeleting}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Removendo...</span>
+                  </>
+                ) : (
+                  <span>Sim, Remover ({selectedStatusIds.size})</span>
+                )}
               </button>
             </div>
           </div>
