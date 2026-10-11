@@ -120,3 +120,42 @@
 .dark .hover\:bg-\[\#fafbfc\]:hover {
   background-color: #1c2438 !important;
 }
+
+/* Custom Text / Font Color overrides */
+[data-has-custom-text="true"] body,
+[data-has-custom-text="true"] #root,
+[data-has-custom-text="true"] h1,
+[data-has-custom-text="true"] h2,
+[data-has-custom-text="true"] h3,
+[data-has-custom-text="true"] h4,
+[data-has-custom-text="true"] h5,
+[data-has-custom-text="true"] h6,
+[data-has-custom-text="true"] .font-display,
+[data-has-custom-text="true"] .text-\[\#131b2e\],
+[data-has-custom-text="true"] .text-\[\#1e293b\],
+[data-has-custom-text="true"] .text-\[\#334155\],
+[data-has-custom-text="true"] .dark .text-\[\#131b2e\],
+[data-has-custom-text="true"] .dark .text-\[\#1e293b\],
+[data-has-custom-text="true"] .dark .text-\[\#f1f5f9\] {
+  color: var(--custom-text-color) !important;
+}
+
+/* Custom Theme Background and Card overrides */
+[data-has-custom-theme="true"] body,
+[data-has-custom-theme="true"] .bg-\[\#faf8ff\],
+[data-has-custom-theme="true"] .dark .bg-\[\#faf8ff\],
+[data-has-custom-theme="true"] .dark .bg-\[\#0b0f19\] {
+  background-color: var(--custom-bg-main) !important;
+}
+
+[data-has-custom-theme="true"] .bg-white,
+[data-has-custom-theme="true"] .dark .bg-white,
+[data-has-custom-theme="true"] .dark .bg-\[\#131826\] {
+  background-color: var(--custom-bg-card) !important;
+}
+
+[data-has-custom-theme="true"] header,
+[data-has-custom-theme="true"] aside {
+  background-color: var(--custom-bg-header) !important;
+}
+

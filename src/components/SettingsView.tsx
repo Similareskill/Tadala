@@ -32,7 +32,7 @@ import { AppSettings, ShoppingItem, AdminAccount, ActivityLogEntry, ActivityType
 import { formatCurrency, playHapticSound, formatDate, formatRelativeTime } from '../utils/helpers';
 import { adminAuthService } from '../services/adminAuth';
 import { activityLogService } from '../services/activityLogService';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, THEME_PRESETS, TEXT_COLOR_PRESETS } from '../context/ThemeContext';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -68,7 +68,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newCategory, setNewCategory] = useState('');
   const [copied, setCopied] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
-  const { isDark, setTheme } = useTheme();
+  const {
+    isDark,
+    setTheme,
+    activeThemeId,
+    currentTextColor,
+    applyThemePreset,
+    setTextColor,
+    resetAllColors,
+  } = useTheme();
 
   // Admin password change form
   const [showChangePass, setShowChangePass] = useState(false);
@@ -697,6 +705,125 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
           </button>
+        </div>
+
+        {/* Theme Color Presets */}
+        <div className="pt-3 border-t border-[#f1f5f9] dark:border-[#222b3e] space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#131b2e] dark:text-white flex items-center gap-1.5">
+              <span>🎨 Paletas e Cores do Tema:</span>
+            </span>
+            <span className="text-[10px] text-[#64748b] dark:text-[#94a3b8]">
+              Fundo e superfície
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {THEME_PRESETS.map((preset) => {
+              const isSelected = activeThemeId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => {
+                    playHapticSound('click');
+                    applyThemePreset(preset.id);
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                    isSelected
+                      ? 'ring-2 ring-[#2a14b4] border-[#2a14b4] bg-[#eaedff]/60 dark:bg-indigo-950/40 shadow-xs'
+                      : 'border-[#e2e8f0] dark:border-[#222b3e] bg-[#f8fafc] dark:bg-[#161c2a] hover:border-[#cbd5e1]'
+                  }`}
+                >
+                  <div
+                    className="w-5 h-5 rounded-lg shrink-0 border flex items-center justify-center shadow-2xs"
+                    style={{ backgroundColor: preset.bgMain, borderColor: preset.accent }}
+                  >
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: preset.accent }} />
+                  </div>
+                  <span className="text-[11px] font-bold truncate text-[#131b2e] dark:text-white">
+                    {preset.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Text / Letter Color Presets */}
+        <div className="pt-3 border-t border-[#f1f5f9] dark:border-[#222b3e] space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#131b2e] dark:text-white flex items-center gap-1.5">
+              <span>✍️ Cor das Letras e Textos:</span>
+            </span>
+            <span className="text-[10px] text-[#64748b] dark:text-[#94a3b8]">
+              {currentTextColor ? `Ativa: ${currentTextColor}` : 'Padrão Automático'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {TEXT_COLOR_PRESETS.map((preset) => {
+              const isSelected =
+                (preset.color === '' && !currentTextColor) ||
+                (currentTextColor.toLowerCase() === preset.color.toLowerCase());
+
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => {
+                    playHapticSound('click');
+                    setTextColor(preset.color);
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                    isSelected
+                      ? 'ring-2 ring-[#2a14b4] border-[#2a14b4] bg-[#eaedff]/60 dark:bg-indigo-950/40 shadow-xs'
+                      : 'border-[#e2e8f0] dark:border-[#222b3e] bg-[#f8fafc] dark:bg-[#161c2a] hover:border-[#cbd5e1]'
+                  }`}
+                >
+                  <div
+                    className="w-5 h-5 rounded-lg shrink-0 border flex items-center justify-center font-black text-[10px] shadow-2xs"
+                    style={{
+                      background: preset.previewBg,
+                      color: preset.color || (isDark ? '#ffffff' : '#131b2e'),
+                    }}
+                  >
+                    Aa
+                  </div>
+                  <span
+                    className="text-[11px] font-bold truncate"
+                    style={{ color: preset.color || undefined }}
+                  >
+                    {preset.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={currentTextColor || (isDark ? '#ffffff' : '#131b2e')}
+                onChange={(e) => setTextColor(e.target.value)}
+                className="w-7 h-7 rounded-lg border border-[#cbd5e1] cursor-pointer p-0.5"
+                title="Escolher qualquer cor para as letras"
+              />
+              <span className="text-[11px] text-[#64748b] dark:text-[#94a3b8]">
+                Seletor livre de cor para as letras
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                playHapticSound('delete');
+                resetAllColors();
+              }}
+              className="text-xs font-semibold text-[#64748b] hover:text-[#131b2e] dark:hover:text-white px-2.5 py-1 rounded-lg hover:bg-[#f1f5f9] dark:hover:bg-[#1c2438] transition-colors cursor-pointer"
+            >
+              Restaurar Cores Padrão
+            </button>
+          </div>
         </div>
       </div>
 
