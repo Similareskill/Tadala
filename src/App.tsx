@@ -22,6 +22,7 @@ import { SettingsView } from './components/SettingsView';
 import { BossCheckinView } from './components/BossCheckinView';
 import { RankPontosView } from './components/RankPontosView';
 import { StatusView } from './components/StatusView';
+import { VoiceChatAgoraView } from './components/VoiceChatAgoraView';
 import { ProfileModal } from './components/ProfileModal';
 import { ImportListModal } from './components/ImportListModal';
 import { AuthModal } from './components/AuthModal';
@@ -1284,7 +1285,17 @@ export default function App() {
               />
             )}
 
-            {/* VIEW 6: CONFIGURAÇÕES */}
+            {/* VIEW 6: CHAT DE VOZ (TadalaChatVoz - Agora App Builder) */}
+            {currentTab === 'chatvoz' && (
+              <VoiceChatAgoraView
+                currentUserNick={effectiveUser?.displayName || localNick || 'Membro TADALA'}
+                isAdmin={isAdmin}
+                onRequireAdmin={requireAdmin}
+                onShowToast={showToast}
+              />
+            )}
+
+            {/* VIEW 7: CONFIGURAÇÕES */}
             {currentTab === 'configuracoes' && (
               <SettingsView
                 settings={settings}
