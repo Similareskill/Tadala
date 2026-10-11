@@ -136,6 +136,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
     { name: 'Zerkal-118', category: 'Boss Anonimas 110 / Abadia 118', points: 5 },
     { name: 'Τ.Α 2/Τ.Α 3', category: 'Boss TA2,TA3,TA4', points: 5 },
     { name: 'Τ.Α 4', category: 'Boss TA2,TA3,TA4', points: 5 },
+    { name: 'T.A 5', category: 'Boss TA2,TA3,TA4', points: 5 },
     { name: 'Baltazar', category: 'Boss de Guilda', points: 5 },
     { name: 'Cruzada', category: 'Boss de Guilda', points: 5 },
     { name: 'Dominação', category: 'Boss de Guilda', points: 5 },
@@ -479,6 +480,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
       case 'Boss Global':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'Boss TA2,TA3,TA4':
+      case 'Boss TA2,TA3,TA4,TA5':
         return 'bg-amber-50 text-amber-900 border-amber-300';
       case 'Boss Anonimas 110 / Abadia 118':
         return 'bg-purple-50 text-purple-700 border-purple-200';

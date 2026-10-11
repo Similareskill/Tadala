@@ -90,6 +90,16 @@ export const INITIAL_BOSS_EVENTS: BossEvent[] = [
     createdAt: new Date(now - 1800000).toISOString(),
     createdBy: 'Admin Guilda',
   },
+  {
+    id: 'boss-8',
+    bossName: 'T.A 5',
+    scheduledTime: new Date(now + 6 * 60 * 60 * 1000).toISOString(),
+    points: 5,
+    description: 'Torre Ancestral 5. Requer poder elevado e grupo coordenado.',
+    category: 'Boss TA2,TA3,TA4',
+    createdAt: new Date(now - 1800000).toISOString(),
+    createdBy: 'Admin Guilda',
+  },
 ];
 
 // Automatic confirmation members: member Ella receives automatic confirmation in all check-ins
