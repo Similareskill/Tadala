@@ -236,7 +236,7 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>Web App ({AGORA_APP_BUILDER_CONFIG.PROJECT_ID})</span>
+                <span>voicetadala.vercel.app</span>
               </button>
             </div>
 
@@ -632,7 +632,7 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-[#00AEFC]" />
               <span className="text-xs font-bold">
-                TadalaChatVoz App Builder: {AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}
+                TadalaChatVoz: voicetadala.vercel.app
               </span>
             </div>
             <a

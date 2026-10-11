@@ -17,7 +17,7 @@ export const AGORA_APP_BUILDER_CONFIG = {
   APP_NAME: 'TadalaChatVoz',
   LOGO: 'https://dl-prod.rteappbuilder.com/tluafed/5TWpUqsdC0BH6lPJ.jpeg',
   PRIMARY_COLOR: '#00AEFC',
-  FRONTEND_ENDPOINT: 'https://d9529dbbef6ef12ca8e2-tadala.vercel.app',
+  FRONTEND_ENDPOINT: 'https://voicetadala.vercel.app',
   BACKEND_ENDPOINT: 'https://managedservices-prod.rteappbuilder.com',
   CHAT_ORG_NAME: 'TADALA',
   CHAT_APP_NAME: 'TADALA',
