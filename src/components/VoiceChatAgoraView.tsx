@@ -54,11 +54,13 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
 }) => {
   const [activeChannel, setActiveChannel] = useState<VoiceChannelPreset>(PRESET_VOICE_CHANNELS[0]);
   const [customChannelInput, setCustomChannelInput] = useState('');
+  const [customAgoraToken, setCustomAgoraToken] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
+  const [hasMicrophone, setHasMicrophone] = useState(false);
   const [participants, setParticipants] = useState<VoiceUser[]>([]);
-  const [viewMode, setViewMode] = useState<'native' | 'embedded'>('native');
+  const [viewMode, setViewMode] = useState<'embedded' | 'native'>('embedded');
   const [copiedLink, setCopiedLink] = useState(false);
   const [liveReaction, setLiveReaction] = useState<string | null>(null);
   const [isPttPressed, setIsPttPressed] = useState(false);
@@ -71,6 +73,7 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
       setConnectionStatus(agoraVoiceService.getStatus());
       setIsMuted(agoraVoiceService.getIsMuted());
       setIsDeafened(agoraVoiceService.getIsDeafened());
+      setHasMicrophone(agoraVoiceService.getHasMicrophone());
       setParticipants(agoraVoiceService.getParticipants(currentUserNick));
     };
 
@@ -85,13 +88,36 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
   const handleConnect = async (channel: VoiceChannelPreset) => {
     playHapticSound('toggle');
     setActiveChannel(channel);
-    const success = await agoraVoiceService.join(channel.id, currentUserNick);
-    if (success) {
-      playHapticSound('success');
-      onShowToast(`Conectado à sala de voz "${channel.name}"!`);
+    const result = await agoraVoiceService.join(channel.id, currentUserNick, customAgoraToken);
+    if (result.success) {
+      if (result.isListenOnly) {
+        playHapticSound('click');
+        onShowToast(`Conectado à sala "${channel.name}" em Modo Ouvinte.`);
+      } else {
+        playHapticSound('success');
+        onShowToast(`Conectado à sala de voz "${channel.name}" com microfone!`);
+      }
     } else {
       playHapticSound('delete');
-      onShowToast(`Não foi possível conectar ao microfone/sala. Verifique permissões.`);
+      if (result.errorType === 'TOKEN_REQUIRED') {
+        setViewMode('embedded');
+        onShowToast('Chave dinâmica necessária. Alternando para o Web App oficial da sala...');
+      } else {
+        onShowToast(result.error || 'Não foi possível conectar. Alternando para o Web App...');
+        setViewMode('embedded');
+      }
+    }
+  };
+
+  const handleRetryMic = async () => {
+    playHapticSound('toggle');
+    const granted = await agoraVoiceService.requestMicrophoneAccess();
+    if (granted) {
+      playHapticSound('success');
+      onShowToast('Microfone ativado com sucesso!');
+    } else {
+      playHapticSound('delete');
+      onShowToast('Permissão de microfone negada ou nenhum microfone detectado.');
     }
   };
 
@@ -145,12 +171,12 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
 
   // Copy app invite link
   const handleCopyLink = () => {
-    const url = AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT;
+    const url = `${AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}/${activeChannel.id}`;
     try {
       navigator.clipboard.writeText(url);
       setCopiedLink(true);
       playHapticSound('click');
-      onShowToast('Link do TadalaChatVoz copiado para a área de transferência!');
+      onShowToast(`Link da sala "${activeChannel.name}" copiado!`);
       setTimeout(() => setCopiedLink(false), 2500);
     } catch {
       onShowToast(url);
@@ -215,19 +241,6 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
             <div className="bg-white/10 p-1 rounded-2xl border border-white/15 flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setViewMode('native')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  viewMode === 'native'
-                    ? 'bg-[#00AEFC] text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Radio className="w-3.5 h-3.5" />
-                <span>Painel Integrado</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setViewMode('embedded')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === 'embedded'
@@ -236,7 +249,20 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>tadalavoz.vercel.app</span>
+                <span>TadalaChatVoz App</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('native')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === 'native'
+                    ? 'bg-[#00AEFC] text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>Painel Direto RTC</span>
               </button>
             </div>
 
@@ -251,14 +277,14 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
             </button>
 
             <a
-              href={AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}
+              href={`${AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}/${activeChannel.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-2 rounded-2xl bg-[#00AEFC] hover:bg-[#0096dc] text-white text-xs font-bold transition-colors shadow-md shadow-[#00AEFC]/20 cursor-pointer flex items-center gap-1.5"
-              title="Abrir no app web independente (Vercel)"
+              title="Abrir esta sala no app web independente (Vercel)"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Abrir App</span>
+              <span>Abrir Sala</span>
             </a>
           </div>
         </div>
@@ -325,8 +351,10 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
 
                       <div className="shrink-0 text-right">
                         {isCurrentConnected ? (
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-emerald-500 text-white">
-                            CONECTADO
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg text-white ${
+                            hasMicrophone ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`}>
+                            {hasMicrophone ? 'VOZ ATIVA' : 'OUVINTE'}
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold text-[#00AEFC] hover:underline">
@@ -395,6 +423,20 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
                   Ativo (AI ANS)
                 </span>
               </div>
+
+              {/* Optional Token Input if user wants manual RTC Token */}
+              <div className="pt-2 border-t border-[#e2e8f0] dark:border-[#222b3e] space-y-1">
+                <label className="text-[10px] font-bold text-[#64748b] dark:text-[#94a3b8] block">
+                  Token Temporário RTC (Opcional):
+                </label>
+                <input
+                  type="password"
+                  value={customAgoraToken}
+                  onChange={(e) => setCustomAgoraToken(e.target.value)}
+                  placeholder="Insira se seu canal exigir token"
+                  className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-[#cbd5e1] dark:border-[#2a3449] bg-white dark:bg-[#131826] text-[#131b2e] dark:text-white focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 
@@ -412,8 +454,14 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
                       <span className="text-base font-extrabold font-display">
                         {activeChannel.name}
                       </span>
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/10 text-[#00AEFC]">
-                        {isConnected ? 'Em Chamada' : 'Aguardando Conexão'}
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                        isConnected
+                          ? hasMicrophone
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'bg-white/10 text-[#00AEFC]'
+                      }`}>
+                        {isConnected ? (hasMicrophone ? 'Em Chamada (Voz Ativa)' : 'Conectado (Modo Ouvinte)') : 'Aguardando Conexão'}
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -445,6 +493,34 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Listen-Only Mode notice when microphone is blocked/absent */}
+              {isConnected && !hasMicrophone && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs animate-in fade-in">
+                  <div className="flex items-center gap-2 text-amber-300">
+                    <Volume2 className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>Conectado em <strong>Modo Ouvinte</strong> (Áudio da sala ativo. Microfone bloqueado ou desligado).</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRetryMic}
+                      className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold rounded-xl transition-colors cursor-pointer text-xs"
+                    >
+                      Ativar Microfone
+                    </button>
+                    <a
+                      href={`${AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}/${activeChannel.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1 text-xs"
+                    >
+                      <span>Abrir em Nova Aba</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Call Controls: Mic, Deafen, PTT, Reactions */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
@@ -626,31 +702,68 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
           </div>
         </div>
       ) : (
-        /* VIEW MODE 2: EMBEDDED TADALA CHAT VOZ WEB APPLICATION (Vercel) */
+        /* VIEW MODE: EMBEDDED TADALA CHAT VOZ WEB APPLICATION (Vercel) */
         <div className="bg-white dark:bg-[#131826] rounded-3xl border border-[#e2e8f0] dark:border-[#222b3e] overflow-hidden shadow-xl space-y-0">
-          <div className="p-4 bg-[#091b36] text-white flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-[#00AEFC]" />
-              <span className="text-xs font-bold">
-                TadalaChatVoz: tadalavoz.vercel.app
+          {/* Top Quick Room Switcher Bar for embedded app */}
+          <div className="p-3.5 bg-[#091b36] border-b border-white/10 flex flex-wrap items-center justify-between gap-3 text-white">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-slate-300 mr-1 flex items-center gap-1">
+                <Radio className="w-3.5 h-3.5 text-[#00AEFC]" />
+                Salas:
               </span>
+              {PRESET_VOICE_CHANNELS.map((ch) => {
+                const isActive = activeChannel.id === ch.id;
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => {
+                      playHapticSound('click');
+                      setActiveChannel(ch);
+                      onShowToast(`Alternando para a sala "${ch.name}"...`);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-[#00AEFC] text-white shadow-xs ring-1 ring-white/40'
+                        : 'bg-white/10 text-slate-300 hover:text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <span>{ch.icon}</span>
+                    <span>{ch.name}</span>
+                  </button>
+                );
+              })}
             </div>
-            <a
-              href={AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-[#00AEFC] hover:underline font-bold flex items-center gap-1"
-            >
-              <span>Abrir em tela cheia</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Copiar link da sala ativa"
+              >
+                {copiedLink ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedLink ? 'Copiado' : 'Copiar Sala'}</span>
+              </button>
+
+              <a
+                href={`${AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}/${activeChannel.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-1.5 rounded-xl bg-[#00AEFC] hover:bg-[#0096dc] text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Tela Cheia</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
 
-          <div className="relative w-full h-[650px] bg-[#111111]">
+          <div className="relative w-full h-[680px] bg-[#111111]">
             <iframe
-              src={AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}
+              key={activeChannel.id}
+              src={`${AGORA_APP_BUILDER_CONFIG.FRONTEND_ENDPOINT}/${activeChannel.id}`}
               title="TadalaChatVoz Web Application"
-              allow="camera; microphone; display-capture; autoplay; clipboard-write;"
+              allow="camera *; microphone *; display-capture *; autoplay *; clipboard-write *"
               className="w-full h-full border-0"
               onLoad={() => setIframeLoaded(true)}
             />

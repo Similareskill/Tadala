@@ -5,7 +5,7 @@ import AgoraRTC, {
 } from 'agora-rtc-sdk-ng';
 import { AGORA_APP_BUILDER_CONFIG } from '../config/agoraConfig';
 
-// Disable Agora verbose logs in development
+// Set Agora log level to warn/error only
 AgoraRTC.setLogLevel(3);
 
 export interface VoiceUser {
@@ -15,9 +15,17 @@ export interface VoiceUser {
   volume: number;
   isMuted: boolean;
   isLocal: boolean;
+  hasAudio?: boolean;
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
+
+export interface JoinResult {
+  success: boolean;
+  isListenOnly?: boolean;
+  error?: string;
+  errorType?: 'MIC_DENIED' | 'NO_MIC_HARDWARE' | 'TOKEN_REQUIRED' | 'NETWORK_ERROR' | 'UNKNOWN';
+}
 
 type VoiceEventCallback = () => void;
 
@@ -27,6 +35,7 @@ class AgoraVoiceService {
   private currentChannel: string | null = null;
   private isMuted: boolean = false;
   private isDeafened: boolean = false;
+  private hasMicrophone: boolean = false;
   private connectionStatus: ConnectionStatus = 'disconnected';
 
   private remoteUsers: Map<string | number, IAgoraRTCRemoteUser> = new Map();
@@ -34,10 +43,6 @@ class AgoraVoiceService {
   private userNames: Map<string | number, string> = new Map();
 
   private listeners: Set<VoiceEventCallback> = new Set();
-
-  constructor() {
-    // Client initialized on demand
-  }
 
   private notify() {
     this.listeners.forEach((cb) => {
@@ -70,6 +75,10 @@ class AgoraVoiceService {
     return this.isDeafened;
   }
 
+  public getHasMicrophone(): boolean {
+    return this.hasMicrophone;
+  }
+
   public getParticipants(localUserName: string): VoiceUser[] {
     const list: VoiceUser[] = [];
 
@@ -79,10 +88,11 @@ class AgoraVoiceService {
       list.push({
         uid: this.client.uid,
         name: localUserName || 'Você',
-        isSpeaking: !this.isMuted && vol > 5,
+        isSpeaking: this.hasMicrophone && !this.isMuted && vol > 5,
         volume: vol,
-        isMuted: this.isMuted,
+        isMuted: this.isMuted || !this.hasMicrophone,
         isLocal: true,
+        hasAudio: this.hasMicrophone,
       });
     }
 
@@ -99,16 +109,19 @@ class AgoraVoiceService {
         volume: vol,
         isMuted: !hasAudio,
         isLocal: false,
+        hasAudio,
       });
     });
 
     return list;
   }
 
-  public async join(channelName: string, userName: string): Promise<boolean> {
+  public async join(channelName: string, userName: string, customToken?: string): Promise<JoinResult> {
     try {
       if (this.connectionStatus === 'connected') {
-        if (this.currentChannel === channelName) return true;
+        if (this.currentChannel === channelName) {
+          return { success: true, isListenOnly: !this.hasMicrophone };
+        }
         await this.leave();
       }
 
@@ -123,7 +136,7 @@ class AgoraVoiceService {
         });
       }
 
-      // Event Handlers
+      // Remote track event handlers
       this.client.on('user-published', async (user, mediaType) => {
         this.remoteUsers.set(user.uid, user);
         await this.client!.subscribe(user, mediaType);
@@ -156,7 +169,7 @@ class AgoraVoiceService {
         this.notify();
       });
 
-      // Enable volume indicator
+      // Volume indicator
       this.client.enableAudioVolumeIndicator();
       this.client.on('volume-indicator', (volumes) => {
         volumes.forEach((vol) => {
@@ -165,34 +178,113 @@ class AgoraVoiceService {
         this.notify();
       });
 
-      // Join Agora Channel using App ID without token (app certificate not enforced)
+      // STEP 1: Join Agora RTC Channel
       const sanitizedChannel = channelName.trim().replace(/\s+/g, '-').toLowerCase();
-      await this.client.join(
-        AGORA_APP_BUILDER_CONFIG.APP_ID,
-        sanitizedChannel,
-        null,
-        null
-      );
+      try {
+        await this.client.join(
+          AGORA_APP_BUILDER_CONFIG.APP_ID,
+          sanitizedChannel,
+          customToken ? customToken.trim() : null,
+          null
+        );
+      } catch (agoraErr: any) {
+        console.warn('Agora client.join error:', agoraErr);
+        const code = agoraErr?.code || agoraErr?.name || '';
+        const msg = String(agoraErr?.message || agoraErr || '');
+        const isTokenRequired =
+          code === 'CAN_NOT_JOIN_WITH_NO_TOKEN' ||
+          code === 'CAN_NOT_GET_GATEWAY_SERVER' ||
+          code === 110 ||
+          code === 109 ||
+          code === 4096 ||
+          code === 'DYNAMIC_KEY_TIMEOUT' ||
+          msg.includes('dynamic use static key') ||
+          msg.includes('CAN_NOT_GET_GATEWAY_SERVER') ||
+          msg.toLowerCase().includes('token') ||
+          msg.toLowerCase().includes('dynamic key');
 
-      // Create Microphone audio track with noise cancellation
-      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig: 'high_quality_stereo',
-        AEC: true,
-        ANS: AGORA_APP_BUILDER_CONFIG.ENABLE_NOISE_CANCELLATION,
-        AGC: true,
-      });
+        this.connectionStatus = 'disconnected';
+        this.currentChannel = null;
+        this.notify();
 
-      // Publish local audio track
-      await this.client.publish([this.localAudioTrack]);
-      this.isMuted = false;
-      this.connectionStatus = 'connected';
-      this.notify();
-      return true;
-    } catch (err) {
-      console.error('Error joining Agora voice channel:', err);
+        return {
+          success: false,
+          errorType: isTokenRequired ? 'TOKEN_REQUIRED' : 'NETWORK_ERROR',
+          error: isTokenRequired
+            ? 'O projeto Agora requer chave dinâmica (Token). O aplicativo oficial tadalavoz.vercel.app gerencia os tokens automaticamente.'
+            : `Falha ao ingressar no canal: ${msg}`,
+        };
+      }
+
+      // STEP 2: Acquire microphone track with graceful fallback to Listen-Only
+      try {
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: 'speech_standard',
+          AEC: true,
+          ANS: AGORA_APP_BUILDER_CONFIG.ENABLE_NOISE_CANCELLATION,
+          AGC: true,
+        });
+
+        await this.client.publish([this.localAudioTrack]);
+        this.hasMicrophone = true;
+        this.isMuted = false;
+        this.connectionStatus = 'connected';
+        this.notify();
+        return { success: true, isListenOnly: false };
+      } catch (micErr: any) {
+        console.warn('Microphone unavailable or blocked. Joining in Listen-Only mode:', micErr);
+        this.localAudioTrack = null;
+        this.hasMicrophone = false;
+        this.isMuted = true;
+        this.connectionStatus = 'connected';
+        this.notify();
+
+        const isDenied = micErr?.name === 'NotAllowedError' || micErr?.code === 'PERMISSION_DENIED';
+        return {
+          success: true,
+          isListenOnly: true,
+          errorType: isDenied ? 'MIC_DENIED' : 'NO_MIC_HARDWARE',
+          error: isDenied
+            ? 'Permissão de microfone bloqueada pelo navegador. Conectado em Modo Ouvinte.'
+            : 'Nenhum microfone detectado. Conectado em Modo Ouvinte.',
+        };
+      }
+    } catch (generalErr: any) {
+      console.error('General error joining Agora voice room:', generalErr);
       this.connectionStatus = 'disconnected';
       this.currentChannel = null;
       this.notify();
+      return {
+        success: false,
+        errorType: 'UNKNOWN',
+        error: String(generalErr?.message || generalErr || 'Erro desconhecido ao conectar.'),
+      };
+    }
+  }
+
+  public async requestMicrophoneAccess(): Promise<boolean> {
+    if (this.connectionStatus !== 'connected' || !this.client) return false;
+
+    try {
+      if (this.localAudioTrack) {
+        this.localAudioTrack.stop();
+        this.localAudioTrack.close();
+      }
+
+      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        encoderConfig: 'speech_standard',
+        AEC: true,
+        ANS: true,
+        AGC: true,
+      });
+
+      await this.client.publish([this.localAudioTrack]);
+      this.hasMicrophone = true;
+      this.isMuted = false;
+      this.notify();
+      return true;
+    } catch (err) {
+      console.warn('Failed to acquire microphone on retry:', err);
       return false;
     }
   }
@@ -219,6 +311,7 @@ class AgoraVoiceService {
       this.currentChannel = null;
       this.isMuted = false;
       this.isDeafened = false;
+      this.hasMicrophone = false;
       this.notify();
     } catch (err) {
       console.warn('Error leaving Agora voice channel:', err);
@@ -229,7 +322,9 @@ class AgoraVoiceService {
   }
 
   public toggleMute(): boolean {
-    if (!this.localAudioTrack) return false;
+    if (!this.hasMicrophone || !this.localAudioTrack) {
+      return true;
+    }
     this.isMuted = !this.isMuted;
     this.localAudioTrack.setEnabled(!this.isMuted);
     this.notify();
@@ -246,7 +341,6 @@ class AgoraVoiceService {
       }
     });
 
-    // When deafened, also mute microphone
     if (this.isDeafened && !this.isMuted && this.localAudioTrack) {
       this.isMuted = true;
       this.localAudioTrack.setEnabled(false);
@@ -256,7 +350,7 @@ class AgoraVoiceService {
   }
 
   public setPushToTalk(active: boolean) {
-    if (!this.localAudioTrack) return;
+    if (!this.hasMicrophone || !this.localAudioTrack) return;
     this.localAudioTrack.setEnabled(active);
     this.isMuted = !active;
     this.notify();
