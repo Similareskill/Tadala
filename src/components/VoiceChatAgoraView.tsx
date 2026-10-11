@@ -236,7 +236,7 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>voicetadala.vercel.app</span>
+                <span>tadalavoz.vercel.app</span>
               </button>
             </div>
 
@@ -632,7 +632,7 @@ export const VoiceChatAgoraView: React.FC<VoiceChatAgoraViewProps> = ({
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-[#00AEFC]" />
               <span className="text-xs font-bold">
-                TadalaChatVoz: voicetadala.vercel.app
+                TadalaChatVoz: tadalavoz.vercel.app
               </span>
             </div>
             <a
