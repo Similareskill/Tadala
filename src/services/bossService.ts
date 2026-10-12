@@ -413,6 +413,35 @@ export const bossService = {
     }
   },
 
+  // Delete multiple Boss events in batch
+  async deleteMultipleBossEvents(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    const idsSet = new Set(ids);
+
+    const currentBosses = (cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses())
+      .filter((b) => !idsSet.has(b.id));
+    saveLocalBosses(currentBosses);
+    cachedBossEvents = currentBosses;
+
+    // Clean up local check-ins for the deleted bosses
+    const currentCheckins = (cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins())
+      .filter((c) => !idsSet.has(c.bossId));
+    saveLocalCheckins(currentCheckins);
+    cachedCheckins = currentCheckins;
+
+    // Delete docs from Firestore
+    try {
+      const deletePromises = ids.map((id) =>
+        deleteDoc(doc(db, BOSS_EVENTS_COLLECTION, id)).catch((err) =>
+          console.warn(`Could not delete boss ${id} in Firestore:`, err)
+        )
+      );
+      await Promise.all(deletePromises);
+    } catch (e) {
+      console.warn('Could not delete multiple bosses in Firestore:', e);
+    }
+  },
+
   // Delete a specific Check-in
   async deleteCheckin(checkinId: string, bossId?: string, userName?: string): Promise<void> {
     const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
