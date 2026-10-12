@@ -15,10 +15,11 @@ import {
   Trophy,
   Flame,
   Zap,
+  Radio,
 } from 'lucide-react';
 import { AdminAccount } from '../types/shopping';
 
-export type TabType = 'lista' | 'historico' | 'checkin' | 'rank' | 'status' | 'configuracoes';
+export type TabType = 'lista' | 'historico' | 'checkin' | 'rank' | 'status' | 'chatvoz' | 'configuracoes';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -194,6 +195,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             ⚔️ Stats
+          </span>
+        </button>
+
+        <button
+          onClick={() => onSelectTab('chatvoz')}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
+            currentTab === 'chatvoz'
+              ? 'bg-[#00AEFC] text-white shadow-sm shadow-cyan-950/20'
+              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#00AEFC] dark:hover:text-white'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Radio className="w-4 h-4 text-[#00AEFC] animate-pulse" />
+            <span>Chat de voz</span>
+          </div>
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5 ${
+              currentTab === 'chatvoz'
+                ? 'bg-white text-[#00AEFC]'
+                : 'bg-cyan-50 dark:bg-cyan-950/50 text-[#00AEFC] border border-[#00AEFC]/30'
+            }`}
+          >
+            TADALA
           </span>
         </button>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { Clock, Plus, RefreshCw, X, Check, ShoppingBag, Sparkles } from 'lucide-react';
 import { ShoppingItem, AppSettings, ShoppingHistoryEntry, AdminAccount, BossEvent, BossCheckin, MemberStatus } from './types/shopping';
 import { INITIAL_ITEMS, INITIAL_SETTINGS, INITIAL_HISTORY, PRESET_ITEM_NAMES } from './data/initialData';
@@ -22,6 +22,9 @@ import { SettingsView } from './components/SettingsView';
 import { BossCheckinView } from './components/BossCheckinView';
 import { RankPontosView } from './components/RankPontosView';
 import { StatusView } from './components/StatusView';
+const VoiceChatAgoraView = lazy(() =>
+  import('./components/VoiceChatAgoraView').then((m) => ({ default: m.VoiceChatAgoraView }))
+);
 import { ProfileModal } from './components/ProfileModal';
 import { ImportListModal } from './components/ImportListModal';
 import { AuthModal } from './components/AuthModal';
@@ -1284,7 +1287,26 @@ export default function App() {
               />
             )}
 
-            {/* VIEW 6: CONFIGURAÇÕES */}
+            {/* VIEW 6: CHAT DE VOZ (TadalaChatVoz - Agora App Builder) */}
+            {currentTab === 'chatvoz' && (
+              <Suspense
+                fallback={
+                  <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
+                    <div className="w-8 h-8 border-3 border-[#00AEFC] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs font-bold text-slate-400">Carregando TadalaChatVoz...</span>
+                  </div>
+                }
+              >
+                <VoiceChatAgoraView
+                  currentUserNick={effectiveUser?.displayName || localNick || 'Membro TADALA'}
+                  isAdmin={isAdmin}
+                  onRequireAdmin={requireAdmin}
+                  onShowToast={showToast}
+                />
+              </Suspense>
+            )}
+
+            {/* VIEW 7: CONFIGURAÇÕES */}
             {currentTab === 'configuracoes' && (
               <SettingsView
                 settings={settings}
