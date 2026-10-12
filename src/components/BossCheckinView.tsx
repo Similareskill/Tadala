@@ -18,6 +18,8 @@ import {
   X,
   Lock,
   RotateCcw,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { BossEvent, BossCheckin } from '../types/shopping';
 import {
@@ -77,6 +79,11 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
   const [checkinInputName, setCheckinInputName] = useState(visitorName);
   const [isSubmittingCheckin, setIsSubmittingCheckin] = useState(false);
   const [bossToDelete, setBossToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Boss selection & bulk deletion state
+  const [selectedBossIds, setSelectedBossIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
   // Categories definition
   const BOSS_CATEGORIES = [
@@ -305,10 +312,105 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
       await bossService.deleteBossEvent(bossToDelete.id);
       playHapticSound('delete');
       onShowToast(`Boss "${bossToDelete.name}" removido com sucesso.`);
+      setSelectedBossIds((prev) => {
+        const next = new Set(prev);
+        next.delete(bossToDelete.id);
+        return next;
+      });
       setBossToDelete(null);
     } catch (err: any) {
       console.error('Erro ao remover Boss:', err);
       onShowToast(`Erro ao remover Boss: ${err?.message || 'Tente novamente.'}`);
+    }
+  };
+
+  // Multiple Boss selection handlers
+  const handleToggleSelectBoss = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedBossIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    playHapticSound('toggle');
+  };
+
+  const handleToggleSelectAllVisible = () => {
+    if (filteredBosses.length === 0) return;
+    const allVisibleSelected = filteredBosses.length > 0 && filteredBosses.every((b) => selectedBossIds.has(b.id));
+    if (allVisibleSelected) {
+      setSelectedBossIds((prev) => {
+        const next = new Set(prev);
+        filteredBosses.forEach((b) => next.delete(b.id));
+        return next;
+      });
+    } else {
+      setSelectedBossIds((prev) => {
+        const next = new Set(prev);
+        filteredBosses.forEach((b) => next.add(b.id));
+        return next;
+      });
+    }
+    playHapticSound('toggle');
+  };
+
+  const handleSelectAllOpen = () => {
+    const openBosses = bossEvents.filter(
+      (b) => bossService.getCheckinWindowStatus(b.scheduledTime, b.checkinEndTime, b.checkinStartTime).isOpen
+    );
+    if (openBosses.length === 0) {
+      onShowToast('Nenhum Boss está com check-in aberto no momento.');
+      return;
+    }
+    setSelectedBossIds((prev) => {
+      const next = new Set(prev);
+      openBosses.forEach((b) => next.add(b.id));
+      return next;
+    });
+    playHapticSound('toggle');
+    onShowToast(`${openBosses.length} Boss(es) em aberto selecionado(s)!`);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedBossIds(new Set());
+    playHapticSound('toggle');
+  };
+
+  const handlePromptBulkDelete = () => {
+    if (!isAdmin) {
+      onRequireAdmin?.('remover múltiplos agendamentos de Boss');
+      return;
+    }
+    if (selectedBossIds.size === 0) {
+      onShowToast('Selecione pelo menos um Boss para remover.');
+      return;
+    }
+    setIsBulkDeleteModalOpen(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (!isAdmin) {
+      onRequireAdmin?.('remover múltiplos agendamentos de Boss');
+      return;
+    }
+    if (selectedBossIds.size === 0) return;
+    setIsDeletingMultiple(true);
+    const count = selectedBossIds.size;
+    try {
+      await bossService.deleteMultipleBossEvents(Array.from(selectedBossIds));
+      playHapticSound('delete');
+      onShowToast(`${count} Boss(es) e registros de presença removidos com sucesso!`);
+      setSelectedBossIds(new Set());
+      setIsBulkDeleteModalOpen(false);
+    } catch (err: any) {
+      console.error('Erro ao remover múltiplos Bosses:', err);
+      onShowToast(`Erro ao remover Bosses: ${err?.message || 'Tente novamente.'}`);
+    } finally {
+      setIsDeletingMultiple(false);
     }
   };
 
@@ -842,111 +944,212 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
         </div>
       </div>
 
-      {/* Boss Cards List */}
-      {filteredBosses.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#e2e8f0] p-10 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#faf8ff] text-[#2a14b4] flex items-center justify-center mx-auto">
-            <Swords className="w-6 h-6" />
-          </div>
-          <h3 className="font-bold text-base text-[#131b2e]">
-            Nenhum Boss encontrado
-          </h3>
-          <p className="text-xs text-[#64748b] max-w-md mx-auto">
-            {search || filter !== 'todos'
-              ? 'Tente ajustar os filtros ou termo de busca acima.'
-              : 'Nenhum horário de Boss agendado no momento. Administradores podem agendar novos Bosses pelo botão acima.'}
-          </p>
-          <button
-            type="button"
-            onClick={handleOpenNewBossModal}
-            className="px-4 py-2 bg-[#2a14b4] hover:bg-[#200e94] active:bg-[#1a0c79] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 mx-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Agendar Primeiro Boss</span>
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredBosses.map((boss) => {
-            const status = bossService.getCheckinWindowStatus(boss.scheduledTime, boss.checkinEndTime, boss.checkinStartTime);
-            const bossCheckins = checkins.filter((c) => c.bossId === boss.id);
-            const userAlreadyCheckedIn =
-              visitorName &&
-              bossCheckins.some(
-                (c) => c.userName.toLowerCase() === visitorName.toLowerCase()
-              );
-            const myCheckinForBoss = visitorName
-              ? bossCheckins.find((c) => c.userName.toLowerCase() === visitorName.toLowerCase())
-              : null;
-
-            const scheduledDate = new Date(boss.scheduledTime);
-            const formattedTime = scheduledDate.toLocaleTimeString('pt-BR', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-            const formattedDate = scheduledDate.toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: 'short',
-            });
-
-            const windowStartDate = new Date(status.startMs);
-            const formattedStartTime = windowStartDate.toLocaleTimeString('pt-BR', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-
-            const windowEndDate = new Date(status.endMs);
-            const formattedEndTime = windowEndDate.toLocaleTimeString('pt-BR', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-
-            return (
-              <div
-                key={boss.id}
-                className={`bg-white rounded-2xl border transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:shadow-sm ${
-                  status.isOpen
-                    ? 'border-emerald-300 ring-2 ring-emerald-500/20 bg-gradient-to-br from-white via-white to-emerald-50/30'
-                    : status.isUpcoming
-                    ? 'border-[#e2e8f0] hover:border-[#cbd5e1]'
-                    : 'border-slate-200 opacity-80 bg-slate-50/50'
+      {/* Boss Cards Section (Child 5 of space-y-6 container) */}
+      <div className="space-y-3.5">
+        {/* Bulk Selection and Action Toolbar */}
+        {bossEvents.length > 0 && (
+          <div className="bg-white p-3 rounded-2xl border border-[#e2e8f0] shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Botão Selecionar Todos / Desmarcar Todos */}
+              <button
+                type="button"
+                onClick={handleToggleSelectAllVisible}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                  filteredBosses.length > 0 && filteredBosses.every((b) => selectedBossIds.has(b.id))
+                    ? 'bg-[#2a14b4] text-white border-[#2a14b4] shadow-xs'
+                    : 'bg-[#f8fafc] text-[#334155] border-[#e2e8f0] hover:bg-[#eef2f6]'
                 }`}
+                title="Selecionar ou desmarcar todos os Bosses visíveis"
               >
-                {/* Header: Name, Points & Badge */}
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span
-                          className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${getCategoryBadgeClass(
-                            boss.category
-                          )}`}
+                {filteredBosses.length > 0 && filteredBosses.every((b) => selectedBossIds.has(b.id)) ? (
+                  <CheckSquare className="w-3.5 h-3.5" />
+                ) : (
+                  <Square className="w-3.5 h-3.5 opacity-60" />
+                )}
+                <span>
+                  {filteredBosses.length > 0 && filteredBosses.every((b) => selectedBossIds.has(b.id))
+                    ? 'Desmarcar Todos'
+                    : `Selecionar Todos (${filteredBosses.length})`}
+                </span>
+              </button>
+
+              {/* Botão Selecionar Abertos */}
+              {openBossesCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSelectAllOpen}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 shadow-2xs"
+                  title="Selecionar todos os Bosses com check-in aberto"
+                >
+                  <Flame className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                  <span>Selecionar Abertos ({openBossesCount})</span>
+                </button>
+              )}
+
+              {/* Limpar Seleção */}
+              {selectedBossIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#64748b] hover:text-[#131b2e] hover:bg-[#f1f5f9] transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Limpar</span>
+                </button>
+              )}
+            </div>
+
+            {/* Painel de Ações para Selecionados com Botão Remover */}
+            {selectedBossIds.size > 0 && (
+              <div className="flex items-center gap-2 self-end sm:self-auto animate-in fade-in duration-200">
+                <span className="text-xs font-extrabold text-[#2a14b4] bg-[#eaedff] px-2.5 py-1 rounded-xl border border-[#c7d2fe]">
+                  {selectedBossIds.size} Boss{selectedBossIds.size > 1 ? 'es' : ''} selecionado{selectedBossIds.size > 1 ? 's' : ''}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handlePromptBulkDelete}
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                  title={isAdmin ? `Remover os ${selectedBossIds.size} Bosses selecionados` : "Apenas Administrador pode remover Bosses (clique para autenticar)"}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remover Selecionados ({selectedBossIds.size})</span>
+                  {!isAdmin && <Lock className="w-3 h-3 opacity-75 ml-0.5" />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Boss Cards List */}
+        {filteredBosses.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[#e2e8f0] p-10 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#faf8ff] text-[#2a14b4] flex items-center justify-center mx-auto">
+              <Swords className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-base text-[#131b2e]">
+              Nenhum Boss encontrado
+            </h3>
+            <p className="text-xs text-[#64748b] max-w-md mx-auto">
+              {search || filter !== 'todos'
+                ? 'Tente ajustar os filtros ou termo de busca acima.'
+                : 'Nenhum horário de Boss agendado no momento. Administradores podem agendar novos Bosses pelo botão acima.'}
+            </p>
+            <button
+              type="button"
+              onClick={handleOpenNewBossModal}
+              className="px-4 py-2 bg-[#2a14b4] hover:bg-[#200e94] active:bg-[#1a0c79] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 mx-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Agendar Primeiro Boss</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredBosses.map((boss) => {
+              const isSelected = selectedBossIds.has(boss.id);
+              const status = bossService.getCheckinWindowStatus(boss.scheduledTime, boss.checkinEndTime, boss.checkinStartTime);
+              const bossCheckins = checkins.filter((c) => c.bossId === boss.id);
+              const userAlreadyCheckedIn =
+                visitorName &&
+                bossCheckins.some(
+                  (c) => c.userName.toLowerCase() === visitorName.toLowerCase()
+                );
+              const myCheckinForBoss = visitorName
+                ? bossCheckins.find((c) => c.userName.toLowerCase() === visitorName.toLowerCase())
+                : null;
+
+              const scheduledDate = new Date(boss.scheduledTime);
+              const formattedTime = scheduledDate.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+              const formattedDate = scheduledDate.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'short',
+              });
+
+              const windowStartDate = new Date(status.startMs);
+              const formattedStartTime = windowStartDate.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              const windowEndDate = new Date(status.endMs);
+              const formattedEndTime = windowEndDate.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <div
+                  key={boss.id}
+                  className={`bg-white rounded-2xl border transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:shadow-sm ${
+                    isSelected
+                      ? 'border-[#2a14b4] ring-2 ring-[#2a14b4]/30 bg-indigo-50/15'
+                      : status.isOpen
+                      ? 'border-emerald-300 ring-2 ring-emerald-500/20 bg-gradient-to-br from-white via-white to-emerald-50/30'
+                      : status.isUpcoming
+                      ? 'border-[#e2e8f0] hover:border-[#cbd5e1]'
+                      : 'border-slate-200 opacity-80 bg-slate-50/50'
+                  }`}
+                >
+                  {/* Header: Name, Points & Badge */}
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        {/* Checkbox to select boss */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleSelectBoss(boss.id, e)}
+                          className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#2a14b4] border-[#2a14b4] text-white shadow-xs'
+                              : 'bg-white border-[#cbd5e1] hover:border-[#2a14b4] text-transparent hover:text-slate-300'
+                          }`}
+                          title={isSelected ? "Desmarcar este Boss" : "Selecionar este Boss para remover"}
+                          aria-label={`Selecionar boss ${boss.bossName}`}
                         >
-                          {boss.category || 'Boss'}
-                        </span>
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300" />
+                          )}
+                        </button>
 
-                        {/* Status Badge */}
-                        {status.isOpen ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-white shadow-2xs animate-pulse">
-                            <Flame className="w-3 h-3" />
-                            CHECK-IN ABERTO!
-                          </span>
-                        ) : status.isUpcoming ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            <Clock className="w-3 h-3" />
-                            Em breve
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                            Encerrado
-                          </span>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span
+                              className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${getCategoryBadgeClass(
+                                boss.category
+                              )}`}
+                            >
+                              {boss.category || 'Boss'}
+                            </span>
+
+                            {/* Status Badge */}
+                            {status.isOpen ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-white shadow-2xs animate-pulse">
+                                <Flame className="w-3 h-3" />
+                                CHECK-IN ABERTO!
+                              </span>
+                            ) : status.isUpcoming ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <Clock className="w-3 h-3" />
+                                Em breve
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                                Encerrado
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-extrabold text-base sm:text-lg text-[#131b2e] tracking-tight leading-snug">
+                            {boss.bossName}
+                          </h3>
+                        </div>
                       </div>
-
-                      <h3 className="font-extrabold text-base sm:text-lg text-[#131b2e] tracking-tight leading-snug">
-                        {boss.bossName}
-                      </h3>
-                    </div>
 
                     {/* Points Badge, +3 pts Button & Quick Delete Button */}
                     <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
@@ -1270,6 +1473,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
           })}
         </div>
       )}
+      </div>
 
       {/* MODAL 1: Confirm Visitor Check-in */}
       {checkinTargetBoss && (
@@ -1841,6 +2045,94 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                   className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Sim, Remover Confirmados
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: Bulk Delete Bosses Confirmation (Admin only) */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 bg-rose-600 border-b border-rose-700 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-rose-100" />
+                <h3 className="font-extrabold text-sm">
+                  Remover {selectedBossIds.size} Boss{selectedBossIds.size > 1 ? 'es' : ''}?
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                disabled={isDeletingMultiple}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3.5">
+              <p className="text-xs text-[#334155] leading-relaxed">
+                Tem certeza que deseja remover os <strong>{selectedBossIds.size}</strong> Bosses selecionados?
+              </p>
+
+              <div className="max-h-44 overflow-y-auto space-y-1.5 p-2 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
+                {bossEvents
+                  .filter((b) => selectedBossIds.has(b.id))
+                  .map((b) => (
+                    <div
+                      key={b.id}
+                      className="flex items-center justify-between text-xs px-2.5 py-1.5 bg-white rounded-lg border border-[#f1f5f9]"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Swords className="w-3.5 h-3.5 text-[#2a14b4] shrink-0" />
+                        <span className="font-bold text-[#131b2e] truncate">{b.bossName}</span>
+                      </div>
+                      <span className="text-[11px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                        +{b.points} pts
+                      </span>
+                    </div>
+                  ))}
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p>
+                  Esta ação removerá permanentemente os horários selecionados e <strong>todos os registros de presenças/check-ins</strong> associados a eles em todos os aparelhos sincronizados.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#f1f5f9]">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkDeleteModalOpen(false)}
+                  disabled={isDeletingMultiple}
+                  className="px-3.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmBulkDelete}
+                  disabled={isDeletingMultiple}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isDeletingMultiple ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Removendo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Sim, Remover {selectedBossIds.size} Bosses</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
