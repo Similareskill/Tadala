@@ -265,20 +265,25 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
     const clampedPoints = Math.min(100, Math.max(1, Math.round(Number(newBossPoints) || 1)));
 
-    await bossService.addBossEvent({
-      bossName: trimmedName,
-      scheduledTime: scheduledIso,
-      checkinStartTime: checkinStartIso,
-      checkinEndTime: checkinEndIso,
-      points: clampedPoints,
-      category: newBossCategory || 'Boss Global',
-      createdBy: isAdmin ? 'Admin' : (visitorName || 'Membro da Guilda'),
-    });
+    try {
+      await bossService.addBossEvent({
+        bossName: trimmedName,
+        scheduledTime: scheduledIso,
+        checkinStartTime: checkinStartIso,
+        checkinEndTime: checkinEndIso,
+        points: clampedPoints,
+        category: newBossCategory || 'Boss Global',
+        createdBy: isAdmin ? 'Admin' : (visitorName || 'Membro da Guilda'),
+      });
 
-    playHapticSound('toggle');
-    onShowToast(`Boss "${trimmedName}" agendado com sucesso!`);
-    setIsNewBossModalOpen(false);
-    setNewBossName('');
+      playHapticSound('toggle');
+      onShowToast(`Boss "${trimmedName}" agendado com sucesso!`);
+      setIsNewBossModalOpen(false);
+      setNewBossName('');
+    } catch (err: any) {
+      console.error('Erro ao agendar Boss:', err);
+      onShowToast(`Erro ao agendar Boss: ${err?.message || 'Tente novamente.'}`);
+    }
   };
 
   // Handle delete boss (Admin only)
@@ -296,10 +301,15 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
       return;
     }
     if (!bossToDelete) return;
-    await bossService.deleteBossEvent(bossToDelete.id);
-    playHapticSound('delete');
-    onShowToast(`Boss "${bossToDelete.name}" removido com sucesso.`);
-    setBossToDelete(null);
+    try {
+      await bossService.deleteBossEvent(bossToDelete.id);
+      playHapticSound('delete');
+      onShowToast(`Boss "${bossToDelete.name}" removido com sucesso.`);
+      setBossToDelete(null);
+    } catch (err: any) {
+      console.error('Erro ao remover Boss:', err);
+      onShowToast(`Erro ao remover Boss: ${err?.message || 'Tente novamente.'}`);
+    }
   };
 
   // Check-in removal state & handler

@@ -21,6 +21,9 @@ import {
   writeBatch,
   getDocs,
   Unsubscribe,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { ShoppingItem, AppSettings, ShoppingHistoryEntry } from '../types/shopping';
@@ -32,10 +35,25 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with configured databaseId
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Initialize Firestore with fast persistent IndexedDB cache (instant load & offline tolerance)
+export const db = (() => {
+  try {
+    const databaseId = firebaseConfig.firestoreDatabaseId || undefined;
+    return initializeFirestore(
+      app,
+      {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      },
+      databaseId
+    );
+  } catch {
+    return firebaseConfig.firestoreDatabaseId
+      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(app);
+  }
+})();
 
 // Collections
 export const ITEMS_COLLECTION = 'shopping_items';
@@ -243,7 +261,11 @@ export const itemsService = {
   },
 
   async seedInitialIfEmpty(defaultItems: ShoppingItem[]): Promise<void> {
+    const SEEDED_KEY = 'craft_items_seeded_v1';
     try {
+      if (localStorage.getItem(SEEDED_KEY) === 'true') {
+        return;
+      }
       const colRef = collection(db, ITEMS_COLLECTION);
       const snapshot = await getDocs(colRef);
       if (snapshot.empty && defaultItems.length > 0) {
@@ -258,7 +280,12 @@ export const itemsService = {
         }
         await batch.commit();
       }
+      localStorage.setItem(SEEDED_KEY, 'true');
     } catch (e) {
+      if (isQuotaExceededError(e)) {
+        notifyQuotaExceeded();
+      }
+      localStorage.setItem(SEEDED_KEY, 'true');
       console.warn('Could not seed initial items:', e);
     }
   },

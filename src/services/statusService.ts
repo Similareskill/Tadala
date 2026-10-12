@@ -132,18 +132,28 @@ function saveStoredLocal(list: MemberStatus[]) {
 }
 
 export const statusService = {
+  getInitialStatuses(): MemberStatus[] {
+    return getStoredLocal();
+  },
+
   subscribe(
     onUpdate: (statuses: MemberStatus[]) => void,
     onError?: (err: unknown) => void
   ): Unsubscribe {
+    // Initial immediate emit from local storage for 0ms load
+    onUpdate(getStoredLocal());
+
     const colRef = collection(db, STATUSES_COLLECTION);
 
     return onSnapshot(
       colRef,
       (snapshot) => {
         if (snapshot.empty) {
-          // If Firestore is empty, seed with initial members so admin view has data
-          this.seedInitialIfEmpty();
+          // If Firestore is empty and not seeded yet, attempt once
+          const isSeeded = localStorage.getItem('guild_member_statuses_seeded_v1') === 'true';
+          if (!isSeeded) {
+            this.seedInitialIfEmpty();
+          }
           const local = getStoredLocal();
           onUpdate(local);
           return;
@@ -174,7 +184,11 @@ export const statusService = {
   },
 
   async seedInitialIfEmpty(): Promise<void> {
+    const SEEDED_KEY = 'guild_member_statuses_seeded_v1';
     try {
+      if (localStorage.getItem(SEEDED_KEY) === 'true') {
+        return;
+      }
       const colRef = collection(db, STATUSES_COLLECTION);
       const snap = await getDocs(colRef);
       if (snap.empty) {
@@ -185,7 +199,9 @@ export const statusService = {
         });
         await batch.commit();
       }
+      localStorage.setItem(SEEDED_KEY, 'true');
     } catch (e) {
+      localStorage.setItem(SEEDED_KEY, 'true');
       handleFirestoreError(e, OperationType.WRITE, STATUSES_COLLECTION);
     }
   },

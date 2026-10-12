@@ -292,6 +292,15 @@ function saveLocalCheckins(checkins: BossCheckin[]) {
 }
 
 export const bossService = {
+  // Retrieve instant stored data for 0ms initial render
+  getInitialBossEvents(): BossEvent[] {
+    return cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
+  },
+
+  getInitialCheckins(): BossCheckin[] {
+    return cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
+  },
+
   // Synchronize automatic check-ins for designated members (e.g. member Ella)
   syncAutoCheckins(
     bosses: BossEvent[],
@@ -316,17 +325,17 @@ export const bossService = {
       colRef,
       async (snapshot) => {
         if (snapshot.empty) {
-          // Check if system has already been initialized
-          let isInitialized = false;
-          try {
-            const metaSnap = await getDoc(doc(db, SYSTEM_COLLECTION, BOSS_META_DOC));
-            if (metaSnap.exists()) {
-              isInitialized = true;
-            } else if (localStorage.getItem(BOSSES_INITIALIZED_KEY) === 'true') {
-              isInitialized = true;
+          // Check local flag first to eliminate unnecessary network round-trips
+          let isInitialized = localStorage.getItem(BOSSES_INITIALIZED_KEY) === 'true';
+          if (!isInitialized) {
+            try {
+              const metaSnap = await getDoc(doc(db, SYSTEM_COLLECTION, BOSS_META_DOC));
+              if (metaSnap.exists()) {
+                isInitialized = true;
+              }
+            } catch {
+              isInitialized = false;
             }
-          } catch {
-            isInitialized = localStorage.getItem(BOSSES_INITIALIZED_KEY) === 'true';
           }
 
           if (!isInitialized) {
@@ -420,7 +429,7 @@ export const bossService = {
           const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
           const synced = this.syncAutoCheckins(activeBosses, []);
           cachedCheckins = synced;
-          saveLocalBosses(synced);
+          saveLocalCheckins(synced);
           notifyCheckinListeners(synced);
           return;
         }
@@ -440,7 +449,7 @@ export const bossService = {
         const synced = this.syncAutoCheckins(activeBosses, checkins);
 
         cachedCheckins = synced;
-        saveLocalBosses(synced);
+        saveLocalCheckins(synced);
         notifyCheckinListeners(synced);
       },
       (error) => {
@@ -935,11 +944,14 @@ export const bossService = {
     try {
       localStorage.removeItem(SEASON_RESET_KEY);
     } catch {}
-    saveLocalCheckins([newCheckin, ...activeCheckins]);
+    const updated = [newCheckin, ...activeCheckins];
+    saveLocalCheckins(updated);
+    cachedCheckins = updated;
+    notifyCheckinListeners(updated);
 
     // Save to Firestore
     try {
-      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), newCheckin);
+      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), sanitizeForFirestore(newCheckin));
     } catch (e) {
       console.warn('Could not save checkin to firestore, saved locally:', e);
     }

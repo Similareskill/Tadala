@@ -15,27 +15,35 @@ import { FilterBar, FilterStatus } from './components/FilterBar';
 import { BulkActionToolbar } from './components/BulkActionToolbar';
 import { ShoppingItemCard } from './components/ShoppingItemCard';
 import { SyncFooter } from './components/SyncFooter';
-import { ItemModal } from './components/ItemModal';
-import { NotesModal } from './components/NotesModal';
-import { HistoryView } from './components/HistoryView';
-import { SettingsView } from './components/SettingsView';
-import { BossCheckinView } from './components/BossCheckinView';
-import { RankPontosView } from './components/RankPontosView';
-import { StatusView } from './components/StatusView';
-const VoiceChatAgoraView = lazy(() =>
-  import('./components/VoiceChatAgoraView').then((m) => ({ default: m.VoiceChatAgoraView }))
-);
-import { ProfileModal } from './components/ProfileModal';
-import { ImportListModal } from './components/ImportListModal';
-import { AuthModal } from './components/AuthModal';
-import { AdminLoginModal } from './components/AdminLoginModal';
-import { ShareModal } from './components/ShareModal';
 import { authService, itemsService, settingsService, historyService } from './services/firebase';
 import { bossService } from './services/bossService';
 import { statusService } from './services/statusService';
 import { adminAuthService } from './services/adminAuth';
 import { activityLogService } from './services/activityLogService';
 import { User as FirebaseUser } from 'firebase/auth';
+
+// Lazy-load secondary views and modals to minimize initial bundle size and maximize load speed
+const HistoryView = lazy(() => import('./components/HistoryView').then((m) => ({ default: m.HistoryView })));
+const SettingsView = lazy(() => import('./components/SettingsView').then((m) => ({ default: m.SettingsView })));
+const BossCheckinView = lazy(() => import('./components/BossCheckinView').then((m) => ({ default: m.BossCheckinView })));
+const RankPontosView = lazy(() => import('./components/RankPontosView').then((m) => ({ default: m.RankPontosView })));
+const StatusView = lazy(() => import('./components/StatusView').then((m) => ({ default: m.StatusView })));
+const ProfileModal = lazy(() => import('./components/ProfileModal').then((m) => ({ default: m.ProfileModal })));
+const ImportListModal = lazy(() => import('./components/ImportListModal').then((m) => ({ default: m.ImportListModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
+const AdminLoginModal = lazy(() => import('./components/AdminLoginModal').then((m) => ({ default: m.AdminLoginModal })));
+const ShareModal = lazy(() => import('./components/ShareModal').then((m) => ({ default: m.ShareModal })));
+const ItemModal = lazy(() => import('./components/ItemModal').then((m) => ({ default: m.ItemModal })));
+const NotesModal = lazy(() => import('./components/NotesModal').then((m) => ({ default: m.NotesModal })));
+
+function TabLoadingSkeleton() {
+  return (
+    <div className="flex flex-col items-center justify-center p-12 min-h-[360px] text-[#64748b] dark:text-[#94a3b8]">
+      <div className="w-9 h-9 border-3 border-[#2a14b4] dark:border-indigo-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+      <p className="text-xs font-semibold tracking-wide uppercase opacity-75">Carregando painel...</p>
+    </div>
+  );
+}
 
 export default function App() {
   // Navigation tab state
@@ -255,12 +263,12 @@ export default function App() {
     };
   }, []);
 
-  // Boss Check-in and Rank Real-time Subscriptions
-  const [bossEvents, setBossEvents] = useState<BossEvent[]>([]);
-  const [checkins, setCheckins] = useState<BossCheckin[]>([]);
+  // Boss Check-in and Rank Real-time Subscriptions (Hydrated instantly from local cache)
+  const [bossEvents, setBossEvents] = useState<BossEvent[]>(() => bossService.getInitialBossEvents());
+  const [checkins, setCheckins] = useState<BossCheckin[]>(() => bossService.getInitialCheckins());
 
-  // Member Statuses Real-time Subscription (Dano, Defesa, Acerto, Power)
-  const [memberStatuses, setMemberStatuses] = useState<MemberStatus[]>([]);
+  // Member Statuses Real-time Subscription (Hydrated instantly from local cache)
+  const [memberStatuses, setMemberStatuses] = useState<MemberStatus[]>(() => statusService.getInitialStatuses());
 
   useEffect(() => {
     const unsubBosses = bossService.subscribeBossEvents((events) => {
@@ -1237,179 +1245,198 @@ export default function App() {
 
             {/* VIEW 2: HISTÓRICO */}
             {currentTab === 'historico' && (
-              <HistoryView
-                history={history}
-                currencySymbol={settings.currencySymbol}
-                onRestoreItems={handleRestoreItems}
-                onDeleteHistoryEntry={handleDeleteHistoryEntry}
-                onNavigateToList={() => setCurrentTab('lista')}
-                isAdmin={isAdmin}
-                onRequireAdmin={requireAdmin}
-              />
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <HistoryView
+                  history={history}
+                  currencySymbol={settings.currencySymbol}
+                  onRestoreItems={handleRestoreItems}
+                  onDeleteHistoryEntry={handleDeleteHistoryEntry}
+                  onNavigateToList={() => setCurrentTab('lista')}
+                  isAdmin={isAdmin}
+                  onRequireAdmin={requireAdmin}
+                />
+              </Suspense>
             )}
 
             {/* VIEW 3: CHECK-IN DE BOSS */}
             {currentTab === 'checkin' && (
-              <BossCheckinView
-                bossEvents={bossEvents}
-                checkins={checkins}
-                isAdmin={isAdmin}
-                onRequireAdmin={requireAdmin}
-                onNavigateToRank={() => setCurrentTab('rank')}
-                onShowToast={showToast}
-              />
-            )}
-
-            {/* VIEW 4: RANK DE PONTOS */}
-            {currentTab === 'rank' && (
-              <RankPontosView
-                checkins={checkins}
-                bossEvents={bossEvents}
-                isAdmin={isAdmin}
-                onRequireAdmin={requireAdmin}
-                onNavigateToCheckin={() => setCurrentTab('checkin')}
-                onShowToast={showToast}
-              />
-            )}
-
-            {/* VIEW 5: STATUS (Dano, Defesa, Acerto, Power) */}
-            {currentTab === 'status' && (
-              <StatusView
-                statuses={memberStatuses}
-                isAdmin={isAdmin}
-                onOpenAdminLogin={() => {
-                  setAdminActionReason('A visualização de todos os status da guilda é reservada aos administradores.');
-                  setIsAdminModalOpen(true);
-                }}
-                onRequireAdmin={requireAdmin}
-                onShowToast={showToast}
-                currentUserName={effectiveUser?.displayName || localNick}
-              />
-            )}
-
-            {/* VIEW 6: CHAT DE VOZ (TadalaChatVoz - Agora App Builder) */}
-            {currentTab === 'chatvoz' && (
-              <Suspense
-                fallback={
-                  <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
-                    <div className="w-8 h-8 border-3 border-[#00AEFC] border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-bold text-slate-400">Carregando TadalaChatVoz...</span>
-                  </div>
-                }
-              >
-                <VoiceChatAgoraView
-                  currentUserNick={effectiveUser?.displayName || localNick || 'Membro TADALA'}
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <BossCheckinView
+                  bossEvents={bossEvents}
+                  checkins={checkins}
                   isAdmin={isAdmin}
                   onRequireAdmin={requireAdmin}
+                  onNavigateToRank={() => setCurrentTab('rank')}
                   onShowToast={showToast}
                 />
               </Suspense>
             )}
 
-            {/* VIEW 7: CONFIGURAÇÕES */}
+            {/* VIEW 4: RANK DE PONTOS */}
+            {currentTab === 'rank' && (
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <RankPontosView
+                  checkins={checkins}
+                  bossEvents={bossEvents}
+                  isAdmin={isAdmin}
+                  onRequireAdmin={requireAdmin}
+                  onNavigateToCheckin={() => setCurrentTab('checkin')}
+                  onShowToast={showToast}
+                />
+              </Suspense>
+            )}
+
+            {/* VIEW 5: STATUS (Dano, Defesa, Acerto, Power) */}
+            {currentTab === 'status' && (
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <StatusView
+                  statuses={memberStatuses}
+                  isAdmin={isAdmin}
+                  onOpenAdminLogin={() => {
+                    setAdminActionReason('A visualização de todos os status da guilda é reservada aos administradores.');
+                    setIsAdminModalOpen(true);
+                  }}
+                  onRequireAdmin={requireAdmin}
+                  onShowToast={showToast}
+                  currentUserName={effectiveUser?.displayName || localNick}
+                />
+              </Suspense>
+            )}
+
+            {/* VIEW 6: CONFIGURAÇÕES */}
             {currentTab === 'configuracoes' && (
-              <SettingsView
-                settings={settings}
-                items={items}
-                onUpdateSettings={handleUpdateSettings}
-                onResetDemoData={handleResetDemoData}
-                onClearAllItems={handleClearAllItems}
-                onOpenShareModal={() => setIsShareModalOpen(true)}
-                isAdmin={isAdmin}
-                adminUser={adminUser}
-                onOpenAdminLogin={() => {
-                  setAdminActionReason(undefined);
-                  setIsAdminModalOpen(true);
-                }}
-                onAdminLogout={handleAdminLogout}
-                onRequireAdmin={requireAdmin}
-              />
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <SettingsView
+                  settings={settings}
+                  items={items}
+                  onUpdateSettings={handleUpdateSettings}
+                  onResetDemoData={handleResetDemoData}
+                  onClearAllItems={handleClearAllItems}
+                  onOpenShareModal={() => setIsShareModalOpen(true)}
+                  isAdmin={isAdmin}
+                  adminUser={adminUser}
+                  onOpenAdminLogin={() => {
+                    setAdminActionReason(undefined);
+                    setIsAdminModalOpen(true);
+                  }}
+                  onAdminLogout={handleAdminLogout}
+                  onRequireAdmin={requireAdmin}
+                />
+              </Suspense>
             )}
           </main>
         </div>
       </div>
 
-      {/* Item Modal (Create or Edit with Image association) */}
-      <ItemModal
-        isOpen={isItemModalOpen}
-        item={itemToEdit}
-        categories={settings.categories}
-        currencySymbol={settings.currencySymbol}
-        onClose={() => {
-          setIsItemModalOpen(false);
-          setItemToEdit(null);
-        }}
-        onSave={handleSaveItemModal}
-      />
+      {/* Item Modal (Create or Edit with Image association) - Loaded on demand */}
+      {isItemModalOpen && (
+        <Suspense fallback={null}>
+          <ItemModal
+            isOpen={isItemModalOpen}
+            item={itemToEdit}
+            categories={settings.categories}
+            currencySymbol={settings.currencySymbol}
+            onClose={() => {
+              setIsItemModalOpen(false);
+              setItemToEdit(null);
+            }}
+            onSave={handleSaveItemModal}
+          />
+        </Suspense>
+      )}
 
-      {/* Notes / Details Modal */}
-      <NotesModal
-        isOpen={!!notesItem}
-        item={notesItem}
-        onClose={() => setNotesItem(null)}
-        onSaveNotes={handleSaveNotes}
-      />
+      {/* Notes / Details Modal - Loaded on demand */}
+      {!!notesItem && (
+        <Suspense fallback={null}>
+          <NotesModal
+            isOpen={!!notesItem}
+            item={notesItem}
+            onClose={() => setNotesItem(null)}
+            onSaveNotes={handleSaveNotes}
+          />
+        </Suspense>
+      )}
 
-      {/* User Profile Modal */}
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        settings={settings}
-        totalProducts={totalProducts}
-      />
+      {/* User Profile Modal - Loaded on demand */}
+      {isProfileOpen && (
+        <Suspense fallback={null}>
+          <ProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            settings={settings}
+            totalProducts={totalProducts}
+          />
+        </Suspense>
+      )}
 
-      {/* Import List Modal */}
-      <ImportListModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        history={history}
-        onImportItems={handleImportItems}
-      />
+      {/* Import List Modal - Loaded on demand */}
+      {isImportModalOpen && (
+        <Suspense fallback={null}>
+          <ImportListModal
+            isOpen={isImportModalOpen}
+            onClose={() => setIsImportModalOpen(false)}
+            history={history}
+            onImportItems={handleImportItems}
+          />
+        </Suspense>
+      )}
 
       {/* Login & Password Auth Modal (Standard Device Nickname & Account) */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={(msg) => {
-          showToast(msg);
-          try {
-            setLocalNick(localStorage.getItem('shopping_user_name'));
-          } catch {}
-        }}
-      />
+      {isAuthModalOpen && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+            onSuccess={(msg) => {
+              showToast(msg);
+              try {
+                setLocalNick(localStorage.getItem('shopping_user_name'));
+              } catch {}
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Admin Login Modal (Email & Password for Admin Access Control) */}
-      <AdminLoginModal
-        isOpen={isAdminModalOpen}
-        onClose={() => {
-          setIsAdminModalOpen(false);
-          setAdminActionReason(undefined);
-        }}
-        actionReason={adminActionReason}
-        onSuccess={(msg) => {
-          showToast(msg);
-          setIsAdminModalOpen(false);
-          setAdminActionReason(undefined);
-        }}
-      />
+      {isAdminModalOpen && (
+        <Suspense fallback={null}>
+          <AdminLoginModal
+            isOpen={isAdminModalOpen}
+            onClose={() => {
+              setIsAdminModalOpen(false);
+              setAdminActionReason(undefined);
+            }}
+            actionReason={adminActionReason}
+            onSuccess={(msg) => {
+              showToast(msg);
+              setIsAdminModalOpen(false);
+              setAdminActionReason(undefined);
+            }}
+          />
+        </Suspense>
+      )}
 
-      {/* Share / Open on Mobile Modal */}
-      <ShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        currentNickname={localNick || 'Dispositivo'}
-        onUpdateNickname={(newNick) => {
-          setLocalNick(newNick);
-          try {
-            localStorage.setItem('shopping_user_name', newNick);
-          } catch {}
-          showToast(`Nome do dispositivo atualizado para "${newNick}"`);
-        }}
-        onOpenAuthModal={() => {
-          setIsShareModalOpen(false);
-          setIsAuthModalOpen(true);
-        }}
-      />
+      {/* Share / Open on Mobile Modal - Loaded on demand */}
+      {isShareModalOpen && (
+        <Suspense fallback={null}>
+          <ShareModal
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
+            currentNickname={localNick || 'Dispositivo'}
+            onUpdateNickname={(newNick) => {
+              setLocalNick(newNick);
+              try {
+                localStorage.setItem('shopping_user_name', newNick);
+              } catch {}
+              showToast(`Nome do dispositivo atualizado para "${newNick}"`);
+            }}
+            onOpenAuthModal={() => {
+              setIsShareModalOpen(false);
+              setIsAuthModalOpen(true);
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

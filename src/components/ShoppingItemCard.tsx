@@ -314,6 +314,8 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
               src={item.imageUrl}
               alt={item.name}
               onError={() => setImgError(true)}
+              loading="lazy"
+              decoding="async"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
             />

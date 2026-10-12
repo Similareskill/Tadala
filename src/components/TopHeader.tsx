@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { AdminAccount } from '../types/shopping';
 import { ThemeToggleButton } from './ThemeToggleButton';
+import tadalaGamingLogo from '../assets/images/tadala_gaming_logo_1791192069968.jpg';
 
 interface TopHeaderProps {
   searchQuery: string;
@@ -69,9 +70,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-black border border-cyan-500/30 overflow-hidden shrink-0 p-0.5">
             <img
-              src="/src/assets/images/tadala_gaming_logo_1791192069968.jpg"
+              src={tadalaGamingLogo}
               alt="Logo Gaming TADALA FILA"
               className="w-full h-full object-cover rounded-md"
+              loading="lazy"
+              decoding="async"
               referrerPolicy="no-referrer"
             />
           </div>
