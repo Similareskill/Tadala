@@ -24,7 +24,6 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { ShoppingItem, AppSettings, ShoppingHistoryEntry } from '../types/shopping';
-import { isQuotaExceededError, notifyQuotaExceeded } from '../utils/firestoreErrorHandler';
 
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -142,69 +141,37 @@ export const itemsService = {
         onUpdate(items);
       },
       (error) => {
-        if (isQuotaExceededError(error)) {
-          notifyQuotaExceeded();
-          console.warn('[Firestore Offline Fallback] Cota diária do Firestore atingida em shopping_items. Os itens locais continuarão funcionando normalmente.');
-        } else {
-          console.warn('Firestore items subscription notice:', error);
-        }
+        console.error('Firestore items subscription error:', error);
         if (onError) onError(error);
       }
     );
   },
 
   async saveItem(item: ShoppingItem): Promise<void> {
-    try {
-      const docRef = doc(db, ITEMS_COLLECTION, item.id);
-      // Sanitize undefined fields which Firestore rejects
-      const cleanData: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(item)) {
-        if (value !== undefined) {
-          cleanData[key] = value;
-        }
-      }
-      await setDoc(docRef, cleanData, { merge: true });
-    } catch (err) {
-      if (isQuotaExceededError(err)) {
-        notifyQuotaExceeded();
-        console.warn('[Firestore Offline] Item salvo localmente (cota Firestore atingida).');
-      } else {
-        console.warn('Erro ao salvar item no Firestore:', err);
+    const docRef = doc(db, ITEMS_COLLECTION, item.id);
+    // Sanitize undefined fields which Firestore rejects
+    const cleanData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(item)) {
+      if (value !== undefined) {
+        cleanData[key] = value;
       }
     }
+    await setDoc(docRef, cleanData, { merge: true });
   },
 
   async deleteItem(itemId: string): Promise<void> {
-    try {
-      const docRef = doc(db, ITEMS_COLLECTION, itemId);
-      await deleteDoc(docRef);
-    } catch (err) {
-      if (isQuotaExceededError(err)) {
-        notifyQuotaExceeded();
-        console.warn('[Firestore Offline] Item excluído localmente (cota Firestore atingida).');
-      } else {
-        console.warn('Erro ao excluir item no Firestore:', err);
-      }
-    }
+    const docRef = doc(db, ITEMS_COLLECTION, itemId);
+    await deleteDoc(docRef);
   },
 
   async deleteMultipleItems(itemIds: string[]): Promise<void> {
     if (itemIds.length === 0) return;
-    try {
-      const batch = writeBatch(db);
-      for (const id of itemIds) {
-        const docRef = doc(db, ITEMS_COLLECTION, id);
-        batch.delete(docRef);
-      }
-      await batch.commit();
-    } catch (err) {
-      if (isQuotaExceededError(err)) {
-        notifyQuotaExceeded();
-        console.warn('[Firestore Offline] Múltiplos itens excluídos localmente (cota Firestore atingida).');
-      } else {
-        console.warn('Erro ao excluir múltiplos itens no Firestore:', err);
-      }
+    const batch = writeBatch(db);
+    for (const id of itemIds) {
+      const docRef = doc(db, ITEMS_COLLECTION, id);
+      batch.delete(docRef);
     }
+    await batch.commit();
   },
 
   async clearAllItems(): Promise<void> {

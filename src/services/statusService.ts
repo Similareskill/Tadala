@@ -23,8 +23,6 @@ enum OperationType {
   WRITE = 'write',
 }
 
-import { isQuotaExceededError, notifyQuotaExceeded } from '../utils/firestoreErrorHandler';
-
 interface FirestoreErrorInfo {
   error: string;
   operationType: OperationType;
@@ -38,11 +36,6 @@ interface FirestoreErrorInfo {
 }
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  if (isQuotaExceededError(error)) {
-    notifyQuotaExceeded();
-    console.warn(`[StatusService Offline] Cota diária do Firestore atingida em ${path}. Usando armazenamento local.`);
-    return;
-  }
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -54,7 +47,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path,
   };
-  console.warn('Firestore Notice in statusService: ', JSON.stringify(errInfo));
+  console.error('Firestore Error in statusService: ', JSON.stringify(errInfo));
 }
 
 // Initial demonstration statuses for the guild

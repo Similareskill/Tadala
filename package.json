@@ -15,7 +15,6 @@
     "@tailwindcss/vite": "^4.3.3",
     "@vercel/analytics": "^2.0.1",
     "@vitejs/plugin-react": "^6.1.1",
-    "agora-rtc-sdk-ng": "^4.24.8",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.19.0",
