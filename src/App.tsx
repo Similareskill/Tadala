@@ -7,7 +7,6 @@ import resquicioImg from './assets/images/resquicio_relic_icon_1790391724781.jpg
 import laminaDouradaImg from './assets/images/lamina_dourada_icon_1790391871978.jpg';
 import grimorioImg from './assets/images/grimorio_verde_icon_1790391884226.jpg';
 import runaCelesteImg from './assets/images/runa_celeste_icon_1790392045461.jpg';
-import nightCrowsBg from './assets/images/night_crows_wallpaper_1792563471663.jpg';
 import { formatRelativeTime, playHapticSound } from './utils/helpers';
 import { Sidebar, TabType } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -22,6 +21,7 @@ import { statusService } from './services/statusService';
 import { adminAuthService } from './services/adminAuth';
 import { activityLogService } from './services/activityLogService';
 import { User as FirebaseUser } from 'firebase/auth';
+import { useTheme } from './context/ThemeContext';
 
 // Lazy-load secondary views and modals to minimize initial bundle size and maximize load speed
 const HistoryView = lazy(() => import('./components/HistoryView').then((m) => ({ default: m.HistoryView })));
@@ -47,6 +47,8 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
+  const { backgroundStyle, applyThemePreset, saveBackgroundToCurrentTheme, activeThemeId } = useTheme();
+
   // Navigation tab state
   const [currentTab, setCurrentTab] = useState<TabType>('lista');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -951,12 +953,7 @@ export default function App() {
   return (
     <div
       className="min-h-screen text-[#f1f5f9] flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200 relative"
-      style={{
-        backgroundImage: `linear-gradient(to bottom, rgba(5, 7, 12, 0.80) 0%, rgba(8, 11, 18, 0.88) 45%, rgba(5, 7, 12, 0.95) 100%), url(${nightCrowsBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center top',
-        backgroundAttachment: 'fixed',
-      }}
+      style={backgroundStyle}
     >
       {/* Toast Alert */}
       {toastMessage && (
