@@ -2,6 +2,13 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 import nightCrowsWallpaper from '../assets/images/night_crows_wallpaper_1792563471663.jpg';
 import nightCrowsMist from '../assets/images/night_crows_bg_1792563011357.jpg';
 import nightCrowsEclipse from '../assets/images/night_crows_eclipse_1792617324610.jpg';
+import medievalCitadelBlue from '../assets/images/medieval_citadel_blue_1792621241410.jpg';
+import medievalForestCastle from '../assets/images/medieval_forest_castle_1792621254596.jpg';
+import medievalCrimsonCitadel from '../assets/images/medieval_crimson_citadel_1792621268474.jpg';
+import medievalGoldenThrone from '../assets/images/medieval_golden_throne_1792621281103.jpg';
+import medievalArcaneTower from '../assets/images/medieval_arcane_tower_1792621296765.jpg';
+import medievalIceCastle from '../assets/images/medieval_ice_castle_1792621310700.jpg';
+import medievalSakuraPalace from '../assets/images/medieval_sakura_palace_1792621325273.jpg';
 
 export type ThemeMode = 'light' | 'dark';
 export type BackgroundType = 'image' | 'gradient' | 'solid' | 'none';
@@ -38,6 +45,7 @@ export interface BackgroundPresetOption {
 }
 
 export const BACKGROUND_PRESET_OPTIONS: BackgroundPresetOption[] = [
+  // Night Crows Official Backgrounds (Intact)
   {
     id: 'nc-eclipse',
     name: 'Night Crows - Eclipse Escarlate',
@@ -45,7 +53,7 @@ export const BACKGROUND_PRESET_OPTIONS: BackgroundPresetOption[] = [
     imageUrl: nightCrowsEclipse,
     previewThumbnail: nightCrowsEclipse,
     description: 'Castelo gótico ancestral sob eclipse lunar rubro e revoada mística de corvos.',
-    badge: 'Novo',
+    badge: 'Night Crows',
   },
   {
     id: 'nc-fortress',
@@ -54,7 +62,7 @@ export const BACKGROUND_PRESET_OPTIONS: BackgroundPresetOption[] = [
     imageUrl: nightCrowsWallpaper,
     previewThumbnail: nightCrowsWallpaper,
     description: 'Catedral gótica, corvos voando e luar místico sobre a fortaleza.',
-    badge: 'Oficial',
+    badge: 'Night Crows',
   },
   {
     id: 'nc-mist',
@@ -63,7 +71,71 @@ export const BACKGROUND_PRESET_OPTIONS: BackgroundPresetOption[] = [
     imageUrl: nightCrowsMist,
     previewThumbnail: nightCrowsMist,
     description: 'Muralhas medievais sob névoa noturna e tochas de vigília.',
-    badge: 'Gótico',
+    badge: 'Night Crows',
+  },
+  // Medieval Fantasy Backgrounds for Color Menu Themes
+  {
+    id: 'med-citadel-blue',
+    name: 'Cidadela Medieval Noturna',
+    type: 'image',
+    imageUrl: medievalCitadelBlue,
+    previewThumbnail: medievalCitadelBlue,
+    description: 'Fortaleza medieval imponente com tochas e céu estrelado sobre o rio.',
+    badge: 'Medieval',
+  },
+  {
+    id: 'med-forest',
+    name: 'Castelo da Floresta Esmeralda',
+    type: 'image',
+    imageUrl: medievalForestCastle,
+    previewThumbnail: medievalForestCastle,
+    description: 'Fortaleza mística entre árvores ancestrais com tochas e pontes de pedra.',
+    badge: 'Medieval',
+  },
+  {
+    id: 'med-crimson',
+    name: 'Cidadela Carmim Vulcânica',
+    type: 'image',
+    imageUrl: medievalCrimsonCitadel,
+    previewThumbnail: medievalCrimsonCitadel,
+    description: 'Castelo medieval negro sobre escarpadas vulcânicas com braseiros incandescentes.',
+    badge: 'Medieval',
+  },
+  {
+    id: 'med-throne',
+    name: 'Salão do Trono Imperial',
+    type: 'image',
+    imageUrl: medievalGoldenThrone,
+    previewThumbnail: medievalGoldenThrone,
+    description: 'Câmara do trono medieval com estandartes dourados e lustres de ferro forjado.',
+    badge: 'Medieval',
+  },
+  {
+    id: 'med-arcane',
+    name: 'Torre Arcana dos Magos',
+    type: 'image',
+    imageUrl: medievalArcaneTower,
+    previewThumbnail: medievalArcaneTower,
+    description: 'Espiral medieval acima das nuvens com runas arcanas e constelações violeta.',
+    badge: 'Medieval',
+  },
+  {
+    id: 'med-ice',
+    name: 'Fortaleza Glacial do Norte',
+    type: 'image',
+    imageUrl: medievalIceCastle,
+    previewThumbnail: medievalIceCastle,
+    description: 'Baluarte medieval de gelo nas montanhas árticas sob aurora boreal.',
+    badge: 'Medieval',
+  },
+  {
+    id: 'med-sakura',
+    name: 'Palácio Medieval de Cerejeiras',
+    type: 'image',
+    imageUrl: medievalSakuraPalace,
+    previewThumbnail: medievalSakuraPalace,
+    description: 'Castelo de conto de fadas cercado por cerejeiras floridas e pontes de pedra.',
+    badge: 'Medieval',
   },
   {
     id: 'theme-gradient',
@@ -84,6 +156,7 @@ export const BACKGROUND_PRESET_OPTIONS: BackgroundPresetOption[] = [
 ];
 
 export const THEME_PRESETS: ThemePreset[] = [
+  // Night Crows Official Themes (Intact as requested: "nao aplica nos temas Night Crows")
   {
     id: 'night-crows-eclipse',
     name: 'Night Crows (Eclipse)',
@@ -93,7 +166,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#12080e',
     accent: '#e11d48',
     previewColor: '#e11d48',
-    description: 'Atmosfera gótica com eclipse lunar escarlate, revoada de corvos e detalhes em rubi forjado.',
+    description: 'Atmosfera gótica oficial Night Crows com eclipse lunar escarlate e revoada de corvos.',
     defaultBackground: {
       type: 'image',
       imageUrl: nightCrowsEclipse,
@@ -127,7 +200,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#0c101a',
     accent: '#d4af37',
     previewColor: '#d4af37',
-    description: 'Muralhas sombrias e nevoeiro denso com detalhes em ouro rúnico.',
+    description: 'Muralhas sombrias e nevoeiro denso oficial Night Crows com detalhes em ouro rúnico.',
     defaultBackground: {
       type: 'image',
       imageUrl: nightCrowsMist,
@@ -135,6 +208,8 @@ export const THEME_PRESETS: ThemePreset[] = [
       name: 'Night Crows - Névoa & Batalha',
     },
   },
+
+  // Color Menu Themes with Medieval Background Images
   {
     id: 'amoled-black',
     name: 'Onyx AMOLED',
@@ -144,12 +219,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#08080a',
     accent: '#6366f1',
     previewColor: '#050508',
-    description: 'Preto puro absoluto sem papel de parede para contraste e economia OLED.',
+    description: 'Castelo medieval sombrio com alto contraste preto AMOLED.',
     defaultBackground: {
-      type: 'solid',
-      imageUrl: '',
-      opacity: 0.95,
-      name: 'Preto Absoluto AMOLED',
+      type: 'image',
+      imageUrl: medievalCrimsonCitadel,
+      opacity: 0.93,
+      name: 'Fortaleza Obsidiana Medieval',
     },
   },
   {
@@ -161,29 +236,29 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#131826',
     accent: '#4338ca',
     previewColor: '#131826',
-    description: 'Slate escuro balanceado com gradiente atmosférico azul índigo.',
+    description: 'Cidadela medieval noturna sob constelações com tochas e rios místicos.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.88,
-      name: 'Gradiente Índigo Noturno',
+      type: 'image',
+      imageUrl: medievalCitadelBlue,
+      opacity: 0.84,
+      name: 'Cidadela Medieval Noturna',
     },
   },
   {
     id: 'cyber-neon',
-    name: 'Cyberpunk Azul',
+    name: 'Azul Medieval',
     mode: 'dark',
     bgMain: '#040d1a',
     bgCard: '#08172e',
     bgHeader: '#07152b',
     accent: '#06b6d4',
     previewColor: '#08172e',
-    description: 'Tons oceânicos profundos com destaques em azul ciano brilhante.',
+    description: 'Baluarte medieval iluminado por tochas azuladas e névoa ribeirinha.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.85,
-      name: 'Gradiente Ciano Cósmico',
+      type: 'image',
+      imageUrl: medievalCitadelBlue,
+      opacity: 0.82,
+      name: 'Baluarte Azul Medieval',
     },
   },
   {
@@ -195,12 +270,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#082114',
     accent: '#10b981',
     previewColor: '#092416',
-    description: 'Floresta escura mística com acentos em verde esmeralda rúnico.',
+    description: 'Castelo medieval lendário no coração da floresta ancestral esmeralda.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.86,
-      name: 'Gradiente Floresta Mística',
+      type: 'image',
+      imageUrl: medievalForestCastle,
+      opacity: 0.84,
+      name: 'Castelo da Floresta Esmeralda',
     },
   },
   {
@@ -212,12 +287,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#1f0910',
     accent: '#f43f5e',
     previewColor: '#240b13',
-    description: 'Cidadela vampírica escarlate com detalhes em rubi forjado.',
+    description: 'Cidadela medieval vulcânica com muralhas de pedra e braseiros de fogo.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.88,
-      name: 'Gradiente Rubro Carmim',
+      type: 'image',
+      imageUrl: medievalCrimsonCitadel,
+      opacity: 0.82,
+      name: 'Cidadela Carmim Vulcânica',
     },
   },
   {
@@ -229,12 +304,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#1f1604',
     accent: '#f59e0b',
     previewColor: '#241a05',
-    description: 'Salão imperial dos reis corvos com brilho âmbar acolhedor.',
+    description: 'Salão do trono imperial medieval com estandartes dos cavaleiros e lustres.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
+      type: 'image',
+      imageUrl: medievalGoldenThrone,
       opacity: 0.85,
-      name: 'Gradiente Âmbar Real',
+      name: 'Salão do Trono Imperial',
     },
   },
   {
@@ -246,12 +321,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#180a2b',
     accent: '#a855f7',
     previewColor: '#1c0c30',
-    description: 'Dimensão astral sombria com nébula violeta e magia cósmica.',
+    description: 'Torre de menagem dos magos medievais com runas cósmicas e nébula violeta.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.87,
-      name: 'Gradiente Nébula Violeta',
+      type: 'image',
+      imageUrl: medievalArcaneTower,
+      opacity: 0.84,
+      name: 'Torre Arcana dos Magos',
     },
   },
   {
@@ -263,12 +338,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#ffffff',
     accent: '#0284c7',
     previewColor: '#bae6fd',
-    description: 'Tema claro cristalino de gelo com alta legibilidade.',
+    description: 'Fortaleza medieval de gelo nas montanhas sob a luz pura do norte.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.5,
-      name: 'Gradiente Gelo Ártico',
+      type: 'image',
+      imageUrl: medievalIceCastle,
+      opacity: 0.55,
+      name: 'Fortaleza Glacial do Norte',
     },
   },
   {
@@ -280,12 +355,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     bgHeader: '#ffffff',
     accent: '#ec4899',
     previewColor: '#fbcfe8',
-    description: 'Tema claro suave com pétalas de sakura e tons quentes.',
+    description: 'Palácio medieval em vale primaveril com cerejeiras em flor e pontes de pedra.',
     defaultBackground: {
-      type: 'gradient',
-      imageUrl: '',
-      opacity: 0.5,
-      name: 'Gradiente Rosa Sakura',
+      type: 'image',
+      imageUrl: medievalSakuraPalace,
+      opacity: 0.55,
+      name: 'Palácio Medieval de Cerejeiras',
     },
   },
 ];
@@ -343,8 +418,8 @@ const THEME_PRESET_STORAGE_KEY = 'app_theme_preset_id';
 const THEME_TEXT_COLOR_STORAGE_KEY = 'app_theme_text_color';
 const THEME_CUSTOM_BG_STORAGE_KEY = 'app_theme_custom_bg';
 const THEME_CUSTOM_CARD_STORAGE_KEY = 'app_theme_custom_card';
-const THEME_SAVED_BG_MAP_STORAGE_KEY = 'app_theme_saved_bg_map_v2';
-const THEME_ACTIVE_BG_CONFIG_KEY = 'app_theme_active_bg_config_v2';
+const THEME_SAVED_BG_MAP_STORAGE_KEY = 'app_theme_saved_bg_map_v4';
+const THEME_ACTIVE_BG_CONFIG_KEY = 'app_theme_active_bg_config_v4';
 const THEME_CUSTOM_PRESETS_STORAGE_KEY = 'app_custom_theme_presets_v1';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -413,17 +488,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Map of saved backgrounds per theme preset ID: "salvar fundo junto com o tema de cor"
   const [savedBackgroundsMap, setSavedBackgroundsMap] = useState<Record<string, ThemeBackgroundConfig>>(() => {
-    try {
-      const saved = localStorage.getItem(THEME_SAVED_BG_MAP_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {}
-    // Defaults populated from THEME_PRESETS
     const initialMap: Record<string, ThemeBackgroundConfig> = {};
     THEME_PRESETS.forEach((preset) => {
       initialMap[preset.id] = { ...preset.defaultBackground };
     });
+
+    try {
+      const saved = localStorage.getItem(THEME_SAVED_BG_MAP_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Ensure non-Night Crows themes receive their medieval background
+        THEME_PRESETS.forEach((preset) => {
+          if (!preset.id.startsWith('night-crows')) {
+            if (!parsed[preset.id] || parsed[preset.id].type !== 'image' || !parsed[preset.id].imageUrl) {
+              parsed[preset.id] = { ...preset.defaultBackground };
+            }
+          }
+        });
+        return { ...initialMap, ...parsed };
+      }
+    } catch {}
     return initialMap;
   });
 
@@ -432,13 +516,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const activeSaved = localStorage.getItem(THEME_ACTIVE_BG_CONFIG_KEY);
       if (activeSaved) {
-        return JSON.parse(activeSaved);
+        const parsed = JSON.parse(activeSaved);
+        if (parsed && parsed.imageUrl) return parsed;
       }
       const savedMapStr = localStorage.getItem(THEME_SAVED_BG_MAP_STORAGE_KEY);
       if (savedMapStr) {
         const parsedMap = JSON.parse(savedMapStr);
         const presetId = localStorage.getItem(THEME_PRESET_STORAGE_KEY) || 'night-crows-eclipse';
-        if (parsedMap[presetId]) {
+        if (parsedMap[presetId] && parsedMap[presetId].imageUrl) {
           return parsedMap[presetId];
         }
       }

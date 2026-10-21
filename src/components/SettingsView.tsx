@@ -897,12 +897,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     onChange={(e) => setCustomThemeBgId(e.target.value)}
                     className="w-full px-3 py-2 bg-[#080b13] border border-[#2b354d] focus:border-[#c5a059] rounded-xl text-xs text-white focus:outline-none cursor-pointer"
                   >
-                    <option value="nc-eclipse">Night Crows - Eclipse Escarlate (Novo Wallpaper)</option>
-                    <option value="nc-fortress">Night Crows - Fortaleza & Catedral</option>
-                    <option value="nc-mist">Night Crows - Névoa & Batalha</option>
                     <option value="current">Manter Fundo Ativo Atual</option>
-                    <option value="theme-gradient">Gradiente Atmosférico do Tema</option>
-                    <option value="pure-black">Preto Puro AMOLED</option>
+                    {BACKGROUND_PRESET_OPTIONS.map((bg) => (
+                      <option key={bg.id} value={bg.id}>
+                        {bg.name} {bg.badge ? `(${bg.badge})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -910,15 +910,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {/* Quick Swatches for inspiration */}
               <div>
                 <span className="text-[10px] text-[#8e9cb3] block mb-1 font-bold">
-                  Sugestões Rápidas de Paletas Night Crows:
+                  Sugestões Rápidas de Paletas Temáticas:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {[
                     { label: 'Eclipse Escarlate', accent: '#e11d48', bg: '#0b0609', card: '#170b12', bgId: 'nc-eclipse' },
-                    { label: 'Ouro Rúnico', accent: '#d4af37', bg: '#0a0d14', card: '#121824', bgId: 'nc-fortress' },
-                    { label: 'Névoa Sombria', accent: '#38bdf8', bg: '#070b12', card: '#0f1726', bgId: 'nc-mist' },
-                    { label: 'Dragão Carmim', accent: '#f43f5e', bg: '#13050a', card: '#210a12', bgId: 'nc-eclipse' },
-                    { label: 'Corvo Noturno', accent: '#a855f7', bg: '#0b0614', card: '#150d24', bgId: 'nc-fortress' },
+                    { label: 'Cidadela Noturna', accent: '#4338ca', bg: '#0b0f19', card: '#131826', bgId: 'med-citadel-blue' },
+                    { label: 'Floresta Esmeralda', accent: '#10b981', bg: '#04160d', card: '#092416', bgId: 'med-forest' },
+                    { label: 'Cidadela Vulcânica', accent: '#f43f5e', bg: '#14050a', card: '#240b13', bgId: 'med-crimson' },
+                    { label: 'Trono Imperial', accent: '#f59e0b', bg: '#140f02', card: '#241a05', bgId: 'med-throne' },
+                    { label: 'Torre Arcana', accent: '#a855f7', bg: '#0f051c', card: '#1c0c30', bgId: 'med-arcane' },
+                    { label: 'Gelo Polar', accent: '#0284c7', bg: '#f0f7ff', card: '#ffffff', bgId: 'med-ice' },
                   ].map((s) => (
                     <button
                       key={s.label}
@@ -929,7 +931,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         setCustomThemeBgCard(s.card);
                         setCustomThemeBgId(s.bgId);
                         if (!customThemeName || customThemeName.startsWith('Night Crows Custom')) {
-                          setCustomThemeName(`Night Crows (${s.label})`);
+                          setCustomThemeName(`Tema Medieval (${s.label})`);
                         }
                       }}
                       className="text-[10px] px-2 py-1 rounded-lg border border-[#2b354d] bg-[#0c101a] hover:border-[#c5a059] text-[#f3e8c7] flex items-center gap-1.5 cursor-pointer transition-colors"
