@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { ActivityLogEntry } from '../types/shopping';
+import { executeSafeFirestoreWrite } from '../utils/firestoreErrorHandler';
 
 const ACTIVITY_STORAGE_KEY = 'shopping_activity_logs_v1';
 export const ACTIVITY_COLLECTION = 'activity_logs';
@@ -172,21 +173,19 @@ export const activityLogService = {
     broadcastLogs(nextLogs);
 
     // Sync to Firestore
-    try {
+    executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, ACTIVITY_COLLECTION, newLog.id);
       const cleanData: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(newLog)) {
         if (v !== undefined) cleanData[k] = v;
       }
       await setDoc(docRef, cleanData);
-    } catch (e) {
-      console.warn('Could not persist activity log to Firestore:', e);
-    }
+    }, 'addActivityLog');
   },
 
   async clearLogs(): Promise<void> {
     broadcastLogs([]);
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const colRef = collection(db, ACTIVITY_COLLECTION);
       const snap = await getDocs(colRef);
       if (!snap.empty) {
@@ -194,8 +193,6 @@ export const activityLogService = {
         snap.forEach((d) => batch.delete(d.ref));
         await batch.commit();
       }
-    } catch (e) {
-      console.warn('Error clearing activity logs in Firestore:', e);
-    }
+    }, 'clearActivityLogs');
   },
 };

@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { AdminAccount } from '../types/shopping';
+import { executeSafeFirestoreWrite } from '../utils/firestoreErrorHandler';
 
 const ADMIN_STORAGE_KEY = 'shopping_admin_session_v1';
 const ADMIN_CONFIG_DOC = 'admin_auth';
@@ -196,20 +197,18 @@ export const adminAuthService = {
       }
 
       // Sync Firestore admin config in background safely without blocking
-      (async () => {
-        try {
-          const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
-          await setDoc(
-            configRef,
-            {
-              adminEmails: ADMIN_PRESET_EMAILS,
-              lastAdminLogin: cleanEmail,
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
-        } catch {}
-      })();
+      executeSafeFirestoreWrite(async () => {
+        const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
+        await setDoc(
+          configRef,
+          {
+            adminEmails: ADMIN_PRESET_EMAILS,
+            lastAdminLogin: cleanEmail,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }, 'syncAdminConfig');
 
       // Attempt background Firebase Auth session if possible
       (async () => {
@@ -340,8 +339,8 @@ export const adminAuthService = {
       return { success: false, error: 'A senha atual está incorreta.' };
     }
 
-    // Save new hash to Firestore
-    try {
+    // Save new hash to Firestore safely
+    await executeSafeFirestoreWrite(async () => {
       const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
       const newHash = hashPassword(newPass);
       await setDoc(
@@ -353,11 +352,9 @@ export const adminAuthService = {
         },
         { merge: true }
       );
-      return { success: true };
-    } catch (err) {
-      console.error('Error updating password in Firestore:', err);
-      return { success: false, error: 'Não foi possível salvar a nova senha no banco de dados.' };
-    }
+    }, 'changePassword');
+
+    return { success: true };
   },
 
   // Register / Add a new Admin account
@@ -384,7 +381,7 @@ export const adminAuthService = {
     }
 
     // Record in Firestore system_config
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
       const configSnap = await getDoc(configRef);
       const existingEmails: string[] = configSnap.exists() ? configSnap.data().adminEmails || [] : [];
@@ -400,9 +397,7 @@ export const adminAuthService = {
         },
         { merge: true }
       );
-    } catch (e) {
-      console.warn('Could not sync new admin to Firestore:', e);
-    }
+    }, 'registerAdmin');
 
     // Automatically log in as the newly created Admin
     return await this.login(cleanEmail, cleanPass, true);

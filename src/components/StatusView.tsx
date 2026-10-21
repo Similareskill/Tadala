@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Shield,
   Swords,
@@ -96,6 +96,19 @@ export const StatusView: React.FC<StatusViewProps> = ({
   const [selectedStatusIds, setSelectedStatusIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Global Escape key listener to dismiss any active modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAdminAddModal(false);
+        setStatusToDelete(null);
+        setShowBulkDeleteModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Admin filter & search
   const [searchQuery, setSearchQuery] = useState('');
@@ -203,21 +216,23 @@ export const StatusView: React.FC<StatusViewProps> = ({
 
   const handleConfirmDeleteStatus = async () => {
     if (!statusToDelete) return;
+    const target = statusToDelete;
     try {
-      await statusService.deleteStatus(statusToDelete.id);
+      await statusService.deleteStatus(target.id);
       playHapticSound('delete');
       activityLogService.log({
         type: 'status_update',
         title: 'Status de Combate Excluído',
-        description: `O status de combate do membro "${statusToDelete.name}" foi removido por Administrador.`,
+        description: `O status de combate do membro "${target.name}" foi removido por Administrador.`,
         userName: 'Administrador',
         userRole: 'admin',
       });
-      onShowToast(`Status de "${statusToDelete.name}" excluído.`);
-      setStatusToDelete(null);
+      onShowToast(`Status de "${target.name}" excluído.`);
     } catch (e) {
       console.error('Error deleting status:', e);
       onShowToast('Erro ao excluir status.');
+    } finally {
+      setStatusToDelete(null);
     }
   };
 

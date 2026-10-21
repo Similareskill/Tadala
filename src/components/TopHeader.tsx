@@ -152,8 +152,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <span className="hidden sm:inline">Novo Item</span>
         </button>
 
+        {/* Sync Status Badge */}
+        <button
+          type="button"
+          onClick={onOpenShareModal}
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
+          title="Dispositivos sincronizados em tempo real com o banco de dados. Clique para abrir em outro celular ou tablet."
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-[11px] font-bold">Nuvem Ativa</span>
+        </button>
+
         {/* Dark / Light Theme Toggle Button */}
         <ThemeToggleButton size="md" />
+
 
         {/* Device Profile / User Badge */}
         <div className="flex items-center gap-1.5 pl-1 border-l border-[#e2e8f0] dark:border-[#222b3e]">

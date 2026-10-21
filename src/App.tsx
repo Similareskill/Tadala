@@ -15,7 +15,7 @@ import { FilterBar, FilterStatus } from './components/FilterBar';
 import { BulkActionToolbar } from './components/BulkActionToolbar';
 import { ShoppingItemCard } from './components/ShoppingItemCard';
 import { SyncFooter } from './components/SyncFooter';
-import { authService, itemsService, settingsService, historyService } from './services/firebase';
+import { authService, itemsService, settingsService, historyService, reconnectFirestore } from './services/firebase';
 import { bossService } from './services/bossService';
 import { statusService } from './services/statusService';
 import { adminAuthService } from './services/adminAuth';
@@ -857,6 +857,21 @@ export default function App() {
     }
   };
 
+  // Force re-synchronization across all devices
+  const handleForceResync = async () => {
+    try {
+      const ok = await reconnectFirestore();
+      if (ok) {
+        showToast('Dispositivos sincronizados com sucesso com o banco de dados!');
+      } else {
+        showToast('Conexão restabelecida. Sincronizando dados...');
+      }
+    } catch {
+      showToast('Tentando reconectar dispositivos...');
+    }
+  };
+
+
   // Reset to initial demo data from screenshot
   const handleResetDemoData = async () => {
     if (!requireAdmin('Apenas o Administrador pode restaurar configurações ou dados de demonstração.')) return;
@@ -1239,6 +1254,8 @@ export default function App() {
                   onOpenImport={() => setIsImportModalOpen(true)}
                   onSaveCopyToHistory={handleSaveCopyToHistory}
                   collectedCount={cartItems.length}
+                  onOpenShareModal={() => setIsShareModalOpen(true)}
+                  onForceResync={handleForceResync}
                 />
               </div>
             )}

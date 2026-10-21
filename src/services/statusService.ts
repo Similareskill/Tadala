@@ -23,7 +23,11 @@ enum OperationType {
   WRITE = 'write',
 }
 
-import { isQuotaExceededError, notifyQuotaExceeded } from '../utils/firestoreErrorHandler';
+import {
+  isQuotaExceededError,
+  notifyQuotaExceeded,
+  executeSafeFirestoreWrite,
+} from '../utils/firestoreErrorHandler';
 
 interface FirestoreErrorInfo {
   error: string;
@@ -234,12 +238,10 @@ export const statusService = {
     saveStoredLocal(current);
 
     // Save to Firestore
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, STATUSES_COLLECTION, targetId);
       await setDoc(docRef, updatedStatus, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `${STATUSES_COLLECTION}/${targetId}`);
-    }
+    }, `saveStatus(${targetId})`);
   },
 
   async deleteStatus(id: string): Promise<void> {
@@ -248,12 +250,10 @@ export const statusService = {
     saveStoredLocal(current);
 
     // Remote delete
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, STATUSES_COLLECTION, id);
       await deleteDoc(docRef);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `${STATUSES_COLLECTION}/${id}`);
-    }
+    }, `deleteStatus(${id})`);
   },
 
   async deleteMultipleStatuses(ids: string[]): Promise<void> {
@@ -264,16 +264,14 @@ export const statusService = {
     saveStoredLocal(current);
 
     // Remote batch delete
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const batch = writeBatch(db);
       ids.forEach((id) => {
         const docRef = doc(db, STATUSES_COLLECTION, id);
         batch.delete(docRef);
       });
       await batch.commit();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, STATUSES_COLLECTION);
-    }
+    }, 'deleteMultipleStatuses');
   },
 
   getLocalStatusForMember(memberName?: string): MemberStatus | null {

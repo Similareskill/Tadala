@@ -20,6 +20,7 @@ import {
   RotateCcw,
   CheckSquare,
   Square,
+  RefreshCw,
 } from 'lucide-react';
 import { BossEvent, BossCheckin } from '../types/shopping';
 import {
@@ -56,6 +57,23 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Global Escape key listener to close any active modal in BossCheckinView
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setBossToDelete(null);
+        setIsBulkDeleteModalOpen(false);
+        setCheckinTargetBoss(null);
+        setIsNewBossModalOpen(false);
+        setCheckinToDelete(null);
+        setClearBossConfirmadosTarget(null);
+        setIsRemoveAllAutoModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Filter state
   const [filter, setFilter] = useState<'todos' | 'abertos' | 'proximos' | 'encerrados'>('todos');
   const [categoryFilter, setCategoryFilter] = useState<string>('todas');
@@ -79,6 +97,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
   const [checkinInputName, setCheckinInputName] = useState(visitorName);
   const [isSubmittingCheckin, setIsSubmittingCheckin] = useState(false);
   const [bossToDelete, setBossToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingBoss, setIsDeletingBoss] = useState(false);
 
   // Boss selection & bulk deletion state
   const [selectedBossIds, setSelectedBossIds] = useState<Set<string>>(new Set());
@@ -218,6 +237,7 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
     e.preventDefault();
 
     if (!isAdmin) {
+      setIsNewBossModalOpen(false);
       onRequireAdmin?.('adicionar novos Bosses à guilda');
       return;
     }
@@ -303,24 +323,31 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
   };
 
   const handleConfirmDeleteBoss = async () => {
+    if (!bossToDelete) return;
+    const target = bossToDelete;
+
     if (!isAdmin) {
+      setBossToDelete(null);
       onRequireAdmin?.('remover agendamento de Boss');
       return;
     }
-    if (!bossToDelete) return;
+
+    setIsDeletingBoss(true);
     try {
-      await bossService.deleteBossEvent(bossToDelete.id);
+      await bossService.deleteBossEvent(target.id);
       playHapticSound('delete');
-      onShowToast(`Boss "${bossToDelete.name}" removido com sucesso.`);
+      onShowToast(`Boss "${target.name}" removido com sucesso.`);
       setSelectedBossIds((prev) => {
         const next = new Set(prev);
-        next.delete(bossToDelete.id);
+        next.delete(target.id);
         return next;
       });
-      setBossToDelete(null);
     } catch (err: any) {
       console.error('Erro ao remover Boss:', err);
       onShowToast(`Erro ao remover Boss: ${err?.message || 'Tente novamente.'}`);
+    } finally {
+      setIsDeletingBoss(false);
+      setBossToDelete(null);
     }
   };
 
@@ -394,10 +421,14 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
   const handleConfirmBulkDelete = async () => {
     if (!isAdmin) {
+      setIsBulkDeleteModalOpen(false);
       onRequireAdmin?.('remover múltiplos agendamentos de Boss');
       return;
     }
-    if (selectedBossIds.size === 0) return;
+    if (selectedBossIds.size === 0) {
+      setIsBulkDeleteModalOpen(false);
+      return;
+    }
     setIsDeletingMultiple(true);
     const count = selectedBossIds.size;
     try {
@@ -405,12 +436,12 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
       playHapticSound('delete');
       onShowToast(`${count} Boss(es) e registros de presença removidos com sucesso!`);
       setSelectedBossIds(new Set());
-      setIsBulkDeleteModalOpen(false);
     } catch (err: any) {
       console.error('Erro ao remover múltiplos Bosses:', err);
       onShowToast(`Erro ao remover Bosses: ${err?.message || 'Tente novamente.'}`);
     } finally {
       setIsDeletingMultiple(false);
+      setIsBulkDeleteModalOpen(false);
     }
   };
 
@@ -514,17 +545,25 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
   const handleConfirmClearBossConfirmados = async () => {
     if (!isAdmin) {
+      setClearBossConfirmadosTarget(null);
       onRequireAdmin?.('remover confirmados deste Boss');
       return;
     }
     if (!clearBossConfirmadosTarget) return;
-    const targetCheckins = checkins.filter((c) => c.bossId === clearBossConfirmadosTarget.id);
-    for (const c of targetCheckins) {
-      await bossService.deleteCheckin(c.id);
+    const target = clearBossConfirmadosTarget;
+    try {
+      const targetCheckins = checkins.filter((c) => c.bossId === target.id);
+      for (const c of targetCheckins) {
+        await bossService.deleteCheckin(c.id);
+      }
+      playHapticSound('delete');
+      onShowToast(`Todos os confirmados do Boss "${target.bossName}" foram removidos.`);
+    } catch (e) {
+      console.error(e);
+      onShowToast('Erro ao remover confirmados.');
+    } finally {
+      setClearBossConfirmadosTarget(null);
     }
-    playHapticSound('delete');
-    onShowToast(`Todos os confirmados do Boss "${clearBossConfirmadosTarget.bossName}" foram removidos.`);
-    setClearBossConfirmadosTarget(null);
   };
 
   // State & Handlers to add +3 points to open check-ins
@@ -1477,7 +1516,12 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
       {/* MODAL 1: Confirm Visitor Check-in */}
       {checkinTargetBoss && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isSubmittingCheckin) setCheckinTargetBoss(null);
+          }}
+        >
           <div
             className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-[#e2e8f0] overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -1564,7 +1608,10 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
       {/* MODAL 2: Add New Boss (Admin) */}
       {isNewBossModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsNewBossModalOpen(false)}
+        >
           <div
             className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-[#e2e8f0] overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -1828,7 +1875,12 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
       )}
       {/* MODAL 3: Delete Boss Confirmation */}
       {bossToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isDeletingBoss) setBossToDelete(null);
+          }}
+        >
           <div
             className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -1841,7 +1893,8 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
               <button
                 type="button"
                 onClick={() => setBossToDelete(null)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+                disabled={isDeletingBoss}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1856,16 +1909,19 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setBossToDelete(null)}
-                  className="px-3.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer"
+                  disabled={isDeletingBoss}
+                  className="px-3.5 py-1.5 text-xs font-bold text-[#64748b] hover:bg-[#f1f5f9] rounded-xl transition-colors cursor-pointer disabled:opacity-40"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmDeleteBoss}
-                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                  disabled={isDeletingBoss}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5"
                 >
-                  Sim, Remover Boss
+                  {isDeletingBoss && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isDeletingBoss ? 'Removendo...' : 'Sim, Remover Boss'}</span>
                 </button>
               </div>
             </div>
@@ -1875,7 +1931,10 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
       {/* MODAL 4: Delete Check-in Confirmation */}
       {checkinToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setCheckinToDelete(null)}
+        >
           <div
             className={`bg-white rounded-3xl max-w-sm w-full shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-150 ${
               checkinToDelete.isAuto ? 'border-purple-200' : 'border-rose-200'
@@ -1953,7 +2012,12 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
       {/* MODAL 4B: Remove All Auto-Checkins Confirmation */}
       {isRemoveAllAutoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isProcessingAutoAction) setIsRemoveAllAutoModalOpen(false);
+          }}
+        >
           <div
             className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-purple-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -2004,7 +2068,10 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
 
       {/* MODAL 5: Clear All Confirmados For Boss Confirmation (Admin only) */}
       {clearBossConfirmadosTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setClearBossConfirmadosTarget(null)}
+        >
           <div
             className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -2052,9 +2119,13 @@ export const BossCheckinView: React.FC<BossCheckinViewProps> = ({
         </div>
       )}
 
-      {/* MODAL 6: Bulk Delete Bosses Confirmation (Admin only) */}
       {isBulkDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isDeletingMultiple) setIsBulkDeleteModalOpen(false);
+          }}
+        >
           <div
             className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}

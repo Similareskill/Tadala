@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Trophy,
   Crown,
@@ -63,6 +63,19 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
 
   // Total points and checkins across all members
   const grandTotalPoints = checkins.reduce((acc, c) => acc + c.points, 0);
+
+  // Global Escape key listener to dismiss any active modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsResetModalOpen(false);
+        setCheckinToDelete(null);
+        setIsRemoveAllAutoModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   const totalParticipants = rankingList.length;
 
   // Copy formatted rank text for Discord / WhatsApp
@@ -100,6 +113,7 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
 
   const handleConfirmResetSeason = async () => {
     if (!isAdmin) {
+      setIsResetModalOpen(false);
       onRequireAdmin?.('zerar o Rank de Pontos da guilda');
       return;
     }
@@ -148,6 +162,7 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
 
   const handleConfirmDeleteCheckin = async () => {
     if (!isAdmin) {
+      setCheckinToDelete(null);
       onRequireAdmin?.('remover o check-in das presenças confirmadas no Rank');
       return;
     }
@@ -169,17 +184,18 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
           `Presença de "${checkinToDelete.userName}" no Boss "${checkinToDelete.bossName}" removida com sucesso (-${checkinToDelete.points} pts).`
         );
       }
-      setCheckinToDelete(null);
     } catch (err) {
       console.error('Erro ao remover check-in:', err);
       onShowToast('Erro ao remover check-in do banco de dados.');
     } finally {
       setIsDeletingCheckin(false);
+      setCheckinToDelete(null);
     }
   };
 
   const handleRemoveAllAutoCheckins = async () => {
     if (!isAdmin) {
+      setIsRemoveAllAutoModalOpen(false);
       onRequireAdmin?.('remover confirmações do auto-checkin');
       return;
     }
@@ -188,11 +204,11 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
       await bossService.removeAllAutoCheckins('Ella');
       playHapticSound('delete');
       onShowToast('Todas as confirmações de auto-checkin de Ella foram removidas.');
-      setIsRemoveAllAutoModalOpen(false);
     } catch {
       onShowToast('Erro ao remover auto-checkins.');
     } finally {
       setIsProcessingAutoAction(false);
+      setIsRemoveAllAutoModalOpen(false);
     }
   };
 
@@ -708,7 +724,12 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
       </div>
       {/* Reset Season Confirmation Modal */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isResetting) setIsResetModalOpen(false);
+          }}
+        >
           <div
             className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -773,7 +794,12 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
 
       {/* Delete Check-in Confirmation Modal (Admin) */}
       {checkinToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isDeletingCheckin) setCheckinToDelete(null);
+          }}
+        >
           <div
             className={`bg-white rounded-3xl max-w-sm w-full shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-150 ${
               checkinToDelete.isAuto ? 'border-purple-200' : 'border-rose-200'
@@ -864,7 +890,12 @@ export const RankPontosView: React.FC<RankPontosViewProps> = ({
 
       {/* Bulk Remove All Auto-Checkins Modal */}
       {isRemoveAllAutoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isProcessingAutoAction) setIsRemoveAllAutoModalOpen(false);
+          }}
+        >
           <div
             className="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-purple-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}

@@ -20,14 +20,19 @@ import {
   onSnapshot,
   writeBatch,
   getDocs,
+  getDocFromServer,
   Unsubscribe,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
+  setLogLevel,
+  enableNetwork,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { ShoppingItem, AppSettings, ShoppingHistoryEntry } from '../types/shopping';
-import { isQuotaExceededError, notifyQuotaExceeded } from '../utils/firestoreErrorHandler';
+import {
+  isQuotaExceededError,
+  notifyQuotaExceeded,
+  resetQuotaState,
+  executeSafeFirestoreWrite,
+} from '../utils/firestoreErrorHandler';
 
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -35,25 +40,42 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with fast persistent IndexedDB cache (instant load & offline tolerance)
-export const db = (() => {
+// Initialize Firestore using canonical configuration with databaseId
+export const db = firebaseConfig.firestoreDatabaseId
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
+
+// Validate Connection to Firestore on boot (as per Firebase Integration Skill)
+export async function validateFirestoreConnection(): Promise<boolean> {
   try {
-    const databaseId = firebaseConfig.firestoreDatabaseId || undefined;
-    return initializeFirestore(
-      app,
-      {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager(),
-        }),
-      },
-      databaseId
-    );
-  } catch {
-    return firebaseConfig.firestoreDatabaseId
-      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-      : getFirestore(app);
+    await enableNetwork(db).catch(() => {});
+    await getDocFromServer(doc(db, 'system_config', 'app_settings'));
+    resetQuotaState();
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firestore connection notice: Attempting to reconnect network...');
+      try {
+        await enableNetwork(db);
+      } catch {}
+    }
+    return false;
   }
-})();
+}
+
+// Initial connection test
+validateFirestoreConnection().catch(() => {});
+
+export async function reconnectFirestore(): Promise<boolean> {
+  resetQuotaState();
+  try {
+    await enableNetwork(db);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 // Collections
 export const ITEMS_COLLECTION = 'shopping_items';
@@ -172,9 +194,8 @@ export const itemsService = {
   },
 
   async saveItem(item: ShoppingItem): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, ITEMS_COLLECTION, item.id);
-      // Sanitize undefined fields which Firestore rejects
       const cleanData: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(item)) {
         if (value !== undefined) {
@@ -182,51 +203,30 @@ export const itemsService = {
         }
       }
       await setDoc(docRef, cleanData, { merge: true });
-    } catch (err) {
-      if (isQuotaExceededError(err)) {
-        notifyQuotaExceeded();
-        console.warn('[Firestore Offline] Item salvo localmente (cota Firestore atingida).');
-      } else {
-        console.warn('Erro ao salvar item no Firestore:', err);
-      }
-    }
+    }, `saveItem(${item.id})`);
   },
 
   async deleteItem(itemId: string): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, ITEMS_COLLECTION, itemId);
       await deleteDoc(docRef);
-    } catch (err) {
-      if (isQuotaExceededError(err)) {
-        notifyQuotaExceeded();
-        console.warn('[Firestore Offline] Item excluído localmente (cota Firestore atingida).');
-      } else {
-        console.warn('Erro ao excluir item no Firestore:', err);
-      }
-    }
+    }, `deleteItem(${itemId})`);
   },
 
   async deleteMultipleItems(itemIds: string[]): Promise<void> {
     if (itemIds.length === 0) return;
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const batch = writeBatch(db);
       for (const id of itemIds) {
         const docRef = doc(db, ITEMS_COLLECTION, id);
         batch.delete(docRef);
       }
       await batch.commit();
-    } catch (err) {
-      if (isQuotaExceededError(err)) {
-        notifyQuotaExceeded();
-        console.warn('[Firestore Offline] Múltiplos itens excluídos localmente (cota Firestore atingida).');
-      } else {
-        console.warn('Erro ao excluir múltiplos itens no Firestore:', err);
-      }
-    }
+    }, `deleteMultipleItems(${itemIds.length})`);
   },
 
   async clearAllItems(): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const colRef = collection(db, ITEMS_COLLECTION);
       const snapshot = await getDocs(colRef);
       if (!snapshot.empty) {
@@ -234,13 +234,11 @@ export const itemsService = {
         snapshot.forEach((d) => batch.delete(d.ref));
         await batch.commit();
       }
-    } catch (e) {
-      console.warn('Error clearing items in Firestore:', e);
-    }
+    }, 'clearAllItems');
   },
 
   async syncAllItems(newItems: ShoppingItem[], replace: boolean = false): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       if (replace) {
         await this.clearAllItems();
       }
@@ -255,17 +253,15 @@ export const itemsService = {
         batch.set(docRef, cleanData, { merge: true });
       }
       await batch.commit();
-    } catch (e) {
-      console.warn('Error syncing all items in Firestore:', e);
-    }
+    }, 'syncAllItems');
   },
 
   async seedInitialIfEmpty(defaultItems: ShoppingItem[]): Promise<void> {
     const SEEDED_KEY = 'craft_items_seeded_v1';
-    try {
-      if (localStorage.getItem(SEEDED_KEY) === 'true') {
-        return;
-      }
+    if (localStorage.getItem(SEEDED_KEY) === 'true') {
+      return;
+    }
+    await executeSafeFirestoreWrite(async () => {
       const colRef = collection(db, ITEMS_COLLECTION);
       const snapshot = await getDocs(colRef);
       if (snapshot.empty && defaultItems.length > 0) {
@@ -281,13 +277,7 @@ export const itemsService = {
         await batch.commit();
       }
       localStorage.setItem(SEEDED_KEY, 'true');
-    } catch (e) {
-      if (isQuotaExceededError(e)) {
-        notifyQuotaExceeded();
-      }
-      localStorage.setItem(SEEDED_KEY, 'true');
-      console.warn('Could not seed initial items:', e);
-    }
+    }, 'seedInitialIfEmpty');
   },
 };
 
@@ -316,12 +306,10 @@ export const settingsService = {
   },
 
   async saveSettings(settings: AppSettings): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
       await setDoc(docRef, settings, { merge: true });
-    } catch (e) {
-      console.warn('Could not save settings to Firestore:', e);
-    }
+    }, 'saveSettings');
   },
 };
 
@@ -352,20 +340,16 @@ export const historyService = {
   },
 
   async addEntry(entry: ShoppingHistoryEntry): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, HISTORY_COLLECTION, entry.id);
       await setDoc(docRef, entry);
-    } catch (e) {
-      console.warn('Could not add history entry to Firestore:', e);
-    }
+    }, 'addHistoryEntry');
   },
 
   async deleteEntry(id: string): Promise<void> {
-    try {
+    await executeSafeFirestoreWrite(async () => {
       const docRef = doc(db, HISTORY_COLLECTION, id);
       await deleteDoc(docRef);
-    } catch (e) {
-      console.warn('Could not delete history entry in Firestore:', e);
-    }
+    }, 'deleteHistoryEntry');
   },
 };
