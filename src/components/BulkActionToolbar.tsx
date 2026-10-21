@@ -28,10 +28,10 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   onRequireAdmin,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-between text-xs text-[#64748b] px-1 py-1 gap-2">
+    <div className="flex flex-wrap items-center justify-between text-xs text-[#8e9cb3] px-1 py-1 gap-2">
       {/* Selection info */}
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 cursor-pointer font-medium text-[#475569] hover:text-[#1e293b]">
+        <label className="flex items-center gap-2 cursor-pointer font-medium text-[#8e9cb3] hover:text-[#f3e8c7] transition-colors">
           <input
             type="checkbox"
             checked={allSelected}
@@ -39,16 +39,16 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
               if (input) input.indeterminate = someSelected && !allSelected;
             }}
             onChange={onToggleSelectAll}
-            className="w-4 h-4 rounded border-[#cbd5e1] text-[#2a14b4] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#2a14b4]"
+            className="w-4 h-4 rounded border-[#2e394e] text-[#c5a059] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#c5a059] bg-[#0c1018]"
           />
-          <span>Selecionar todos</span>
+          <span className="font-cinzel text-xs">Selecionar todos</span>
         </label>
-        <span className="text-[#cbd5e1]">•</span>
-        <span className="text-[#64748b]">
+        <span className="text-[#2e394e]">•</span>
+        <span className="text-[#8e9cb3]">
           {collectedCount} marcados como coletados
         </span>
         {selectedCount > 0 && (
-          <span className="font-semibold text-[#2a14b4] bg-[#faf8ff] px-2 py-0.5 rounded-full border border-[#eaedff]">
+          <span className="font-bold text-[#c5a059] bg-[#161d2d] px-2.5 py-0.5 rounded-full border border-[#c5a059]/40 shadow-xs">
             {selectedCount} selecionados
           </span>
         )}
@@ -62,7 +62,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
               }
               onAddNewItem();
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#2a14b4] hover:bg-[#200e94] text-white rounded-xl font-bold text-xs shadow-xs hover:shadow transition-all active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] rounded-xl font-bold font-cinzel text-xs shadow-md shadow-black/40 transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Adicionar à lista</span>
@@ -82,9 +82,9 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             onMarkSelectedAsCollected();
           }}
           disabled={selectedCount === 0}
-          className="flex items-center gap-1.5 font-semibold text-[#334155] hover:text-[#006c4a] disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 font-bold font-cinzel text-[#34d399] hover:text-[#6ee7b7] disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
         >
-          <CheckCheck className="w-4 h-4 text-[#006c4a]" />
+          <CheckCheck className="w-4 h-4 text-[#34d399]" />
           <span>Marcar selecionados</span>
         </button>
 
@@ -98,7 +98,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             onDeleteSelected();
           }}
           disabled={selectedCount === 0}
-          className="flex items-center gap-1.5 font-semibold text-[#ef4444] hover:text-[#b91c1c] disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 font-bold font-cinzel text-[#f87171] hover:text-[#fca5a5] disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
         >
           <Trash2 className="w-4 h-4" />
           <span>Excluir</span>

@@ -15,14 +15,14 @@ export interface ThemePreset {
 
 export const THEME_PRESETS: ThemePreset[] = [
   {
-    id: 'default-light',
-    name: 'Claro Padrão',
-    mode: 'light',
-    bgMain: '#faf8ff',
-    bgCard: '#ffffff',
-    bgHeader: '#ffffff',
-    accent: '#2a14b4',
-    previewColor: '#faf8ff',
+    id: 'night-crows',
+    name: 'Night Crows (Oficial)',
+    mode: 'dark',
+    bgMain: '#080a0f',
+    bgCard: '#0f131d',
+    bgHeader: '#0b0e17',
+    accent: '#c5a059',
+    previewColor: '#c5a059',
   },
   {
     id: 'default-dark',
@@ -161,22 +161,23 @@ const THEME_CUSTOM_BG_STORAGE_KEY = 'app_theme_custom_bg';
 const THEME_CUSTOM_CARD_STORAGE_KEY = 'app_theme_custom_card';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Theme Mode (light vs dark)
+  // Theme Mode (light vs dark) - defaults to dark for Night Crows
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     try {
       const saved = localStorage.getItem(THEME_MODE_STORAGE_KEY);
       if (saved === 'dark' || saved === 'light') return saved;
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
     } catch {}
-    return 'light';
+    return 'dark';
   });
 
-  // Active theme preset
+  // Active theme preset - defaults to Night Crows
   const [activeThemeId, setActiveThemeId] = useState<string>(() => {
     try {
-      return localStorage.getItem(THEME_PRESET_STORAGE_KEY) || 'default-light';
+      const saved = localStorage.getItem(THEME_PRESET_STORAGE_KEY);
+      if (saved && saved !== 'default-light') return saved;
+      return 'night-crows';
     } catch {
-      return 'default-light';
+      return 'night-crows';
     }
   });
 

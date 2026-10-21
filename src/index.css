@@ -4,20 +4,23 @@
 
 @layer base {
   :root {
-    --bg-main: #faf8ff;
-    --bg-card: #ffffff;
-    --border-color: #e2e8f0;
-    --text-primary: #131b2e;
-    --text-secondary: #64748b;
-    color-scheme: light;
+    --bg-main: #07090e;
+    --bg-card: #0e131e;
+    --border-color: #242e42;
+    --text-primary: #f1f5f9;
+    --text-secondary: #8e9cb3;
+    --accent-gold: #c5a059;
+    --accent-gold-light: #dfb96c;
+    color-scheme: dark;
   }
 
   .dark, html.dark {
-    --bg-main: #0b0f19;
-    --bg-card: #131826;
-    --border-color: #21293c;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
+    --bg-main: #06080c;
+    --bg-card: #0d121c;
+    --border-color: #1f273a;
+    --text-primary: #f8fafc;
+    --text-secondary: #8e9cb3;
+    --accent-gold: #c5a059;
     color-scheme: dark;
   }
 
@@ -31,12 +34,18 @@
   .dark body,
   html.dark body {
     color: #f1f5f9;
-    background-color: #0b0f19;
+    background-color: #06080c;
   }
 
   h1, h2, h3, h4, h5, h6, .font-display {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Cinzel', Georgia, serif;
+    letter-spacing: 0.02em;
   }
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', Georgia, serif;
+  letter-spacing: 0.02em;
 }
 
 /* Tabular figures for rapid counter adjustments without layout jitter */
@@ -44,81 +53,127 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Custom scrollbar */
+/* Custom Night Crows scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #07090e;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #1f2738;
   border-radius: 9999px;
+  border: 1px solid rgba(197, 160, 89, 0.3);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #c5a059;
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: #111522;
+  background: #06080c;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #252e42;
+  background: #1f2738;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #394663;
+  background: #c5a059;
 }
 
-/* Dark mode overrides for background cards, borders and panels */
-.dark .bg-white {
-  background-color: #131826 !important;
-}
-.dark .bg-\[\#faf8ff\],
-.dark .bg-\[\#f8fafc\],
-.dark .bg-\[\#fafbfc\] {
-  background-color: #0d121e !important;
-}
-.dark .bg-\[\#f1f5f9\] {
-  background-color: #1a2233 !important;
-}
-.dark .border-\[\#e2e8f0\],
-.dark .border-\[\#f1f5f9\],
-.dark .border-\[\#cbd5e1\] {
-  border-color: #222b3e !important;
-}
-.dark .text-\[\#131b2e\],
-.dark .text-\[\#1e293b\] {
-  color: #f1f5f9 !important;
-}
-.dark .text-\[\#475569\],
-.dark .text-\[\#64748b\] {
-  color: #94a3b8 !important;
-}
-.dark .divide-\[\#f1f5f9\],
-.dark .divide-\[\#e2e8f0\] {
-  border-color: #222b3e !important;
-}
-.dark select {
-  background-color: #131826;
+/* =========================================================
+   NIGHT CROWS GAME THEME COMPONENT OVERRIDES
+   Ensures cards, tables, modals, and toolbars adopt
+   the dark gothic medieval European aesthetic.
+   ========================================================= */
+
+/* Night Crows default dark mode container transformation */
+html.dark .bg-white,
+body.dark .bg-white,
+html:not([data-theme="light"]) .bg-white {
+  background-color: rgba(14, 18, 28, 0.92) !important;
   color: #f1f5f9;
+  border-color: #242e42 !important;
 }
-.dark option {
-  background-color: #131826;
-  color: #f1f5f9;
+
+html.dark .bg-\[\#faf8ff\],
+html:not([data-theme="light"]) .bg-\[\#faf8ff\] {
+  background-color: rgba(10, 14, 22, 0.90) !important;
 }
-.dark input[type="text"],
-.dark input[type="number"],
-.dark input[type="url"],
-.dark input[type="email"],
-.dark input[type="password"],
-.dark textarea {
-  color: #f1f5f9;
+
+html.dark .bg-\[\#f8fafc\],
+html:not([data-theme="light"]) .bg-\[\#f8fafc\] {
+  background-color: rgba(13, 17, 26, 0.88) !important;
+  border-color: #222a3d !important;
+  color: #cbd5e1;
 }
-.dark .hover\:bg-\[\#f8fafc\]:hover,
-.dark .hover\:bg-\[\#f1f5f9\]:hover,
-.dark .hover\:bg-\[\#fafbfc\]:hover {
-  background-color: #1c2438 !important;
+
+html.dark .bg-\[\#f1f5f9\],
+html:not([data-theme="light"]) .bg-\[\#f1f5f9\] {
+  background-color: rgba(16, 21, 32, 0.88) !important;
+  color: #cbd5e1;
+}
+
+/* Modal and dialog backdrop */
+html.dark .bg-white\/95,
+html:not([data-theme="light"]) .bg-white\/95 {
+  background-color: rgba(12, 16, 24, 0.96) !important;
+  border-color: rgba(197, 160, 89, 0.35) !important;
+}
+
+/* Subtle gold accent for table rows and card borders */
+html.dark .border-\[\#e2e8f0\],
+html:not([data-theme="light"]) .border-\[\#e2e8f0\],
+html.dark .border-\[\#cbd5e1\],
+html:not([data-theme="light"]) .border-\[\#cbd5e1\] {
+  border-color: #232d40 !important;
+}
+
+/* Text color harmonization for dark fantasy */
+html.dark .text-\[\#131b2e\],
+html:not([data-theme="light"]) .text-\[\#131b2e\],
+html.dark .text-\[\#0f172a\],
+html:not([data-theme="light"]) .text-\[\#0f172a\],
+html.dark .text-\[\#1e293b\],
+html:not([data-theme="light"]) .text-\[\#1e293b\] {
+  color: #f3e8c7 !important;
+}
+
+html.dark .text-\[\#475569\],
+html:not([data-theme="light"]) .text-\[\#475569\],
+html.dark .text-\[\#64748b\],
+html:not([data-theme="light"]) .text-\[\#64748b\] {
+  color: #8e9cb3 !important;
+}
+
+/* Transform generic indigo/purple primary buttons to Night Crows Burnished Gold */
+html:not([data-theme="light"]) .bg-\[\#2a14b4\],
+html:not([data-theme="light"]) .bg-\[\#4338ca\],
+html:not([data-theme="light"]) .bg-\[\#3b2fc4\] {
+  background: linear-gradient(135deg, #c5a059 0%, #9e7d38 100%) !important;
+  color: #080a0f !important;
+  font-family: 'Cinzel', Georgia, serif !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(245, 236, 203, 0.3) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+html:not([data-theme="light"]) .hover\:bg-\[\#200e94\]:hover,
+html:not([data-theme="light"]) .hover\:bg-\[\#3730a3\]:hover {
+  background: linear-gradient(135deg, #dfb96c 0%, #b38e44 100%) !important;
+  color: #080a0f !important;
+}
+
+html:not([data-theme="light"]) .text-\[\#2a14b4\],
+html:not([data-theme="light"]) .text-\[\#4338ca\],
+html:not([data-theme="light"]) .text-\[\#3b2fc4\] {
+  color: #c5a059 !important;
+}
+
+html:not([data-theme="light"]) .bg-\[\#eaedff\],
+html:not([data-theme="light"]) .bg-indigo-50 {
+  background-color: rgba(26, 35, 52, 0.85) !important;
+  color: #f3e8c7 !important;
+  border-color: rgba(197, 160, 89, 0.25) !important;
 }
 
 /* Custom Text / Font Color overrides */
@@ -158,4 +213,5 @@
 [data-has-custom-theme="true"] aside {
   background-color: var(--custom-bg-header) !important;
 }
+
 

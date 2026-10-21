@@ -198,39 +198,32 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
     onToggleStatus(item.id);
   };
 
-  // Color mapping for category/rarity tags
+  // Color mapping for category/rarity tags in Night Crows dark fantasy style
   const getCategoryBadgeClass = (category: string) => {
     switch (category.toLowerCase()) {
       case 'comum':
-        return 'bg-slate-100 text-slate-700 border border-slate-300 font-bold';
+        return 'bg-[#181f2c] text-[#94a3b8] border border-[#2e3b52] font-cinzel';
       case 'incomum':
-        return 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold';
+        return 'bg-[#06241a] text-[#34d399] border border-[#059669]/50 font-cinzel';
       case 'raro':
-        return 'bg-sky-50 text-sky-800 border border-sky-300 font-bold';
+        return 'bg-[#0a1e38] text-[#38bdf8] border border-[#0284c7]/50 font-cinzel';
       case 'epic':
       case 'épico':
-        return 'bg-purple-50 text-purple-800 border border-purple-300 font-bold';
+        return 'bg-[#1e0c30] text-[#c084fc] border border-[#7e22ce]/50 font-cinzel';
       case 'lendario':
       case 'lendário':
-        return 'bg-amber-50 text-amber-900 border border-amber-300 font-bold shadow-2xs';
+        return 'bg-gradient-to-r from-[#2c1c05] to-[#3f2908] text-[#fbbf24] border border-[#c5a059]/60 font-cinzel shadow-sm shadow-[#c5a059]/20 font-bold';
       case 'laticínios':
-        return 'bg-[#e0e7ff] text-[#3730a3] border border-[#c7d2fe]';
       case 'mercearia':
-        return 'bg-[#f1f5f9] text-[#334155] border border-[#e2e8f0]';
       case 'bebidas':
-        return 'bg-[#ffedd5] text-[#9a3412] border border-[#fed7aa]';
       case 'hortifruti':
-        return 'bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]';
       case 'carnes & peixes':
       case 'carnes':
-        return 'bg-[#fee2e2] text-[#991b1b] border border-[#fecaca]';
       case 'limpeza':
-        return 'bg-[#e0f2fe] text-[#075985] border border-[#bae6fd]';
       case 'higiene pessoal':
       case 'higiene':
-        return 'bg-[#f3e8ff] text-[#6b21a8] border border-[#e9d5ff]';
       default:
-        return 'bg-[#f1f5f9] text-[#475569] border border-[#e2e8f0]';
+        return 'bg-[#141a28] text-[#c5a059] border border-[#c5a059]/30 font-cinzel';
     }
   };
 
@@ -247,14 +240,14 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
         setIsDropTarget(false);
         onDropCard?.(item.id, e);
       }}
-      className={`group relative bg-white rounded-2xl border transition-all duration-150 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 shadow-xs hover:shadow-sm ${
-        isDragging ? 'opacity-40 scale-[0.98] border-dashed border-[#2a14b4]' : ''
+      className={`group relative bg-[#0e131e]/90 backdrop-blur-md rounded-2xl border transition-all duration-150 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 shadow-lg shadow-black/50 ${
+        isDragging ? 'opacity-40 scale-[0.98] border-dashed border-[#c5a059]' : ''
       } ${
         isDropTarget
-          ? 'ring-2 ring-[#2a14b4] bg-[#eaedff]/40 border-[#2a14b4] scale-[1.01]'
+          ? 'ring-2 ring-[#c5a059] bg-[#1a2336]/90 border-[#c5a059] scale-[1.01]'
           : isCompleted
-          ? 'border-[#86efac]/50 bg-[#fafdfa]/70'
-          : 'border-[#e2e8f0] hover:border-[#cbd5e1]'
+          ? 'border-emerald-500/40 bg-[#091714]/85 text-emerald-100/90'
+          : 'border-[#242e42] hover:border-[#c5a059]/50'
       }`}
     >
       {/* Left zone: Drag Handle + Checkbox + Thumbnail + Info */}
@@ -279,7 +272,7 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
             checked={!!item.selected}
             onChange={() => onToggleSelect(item.id)}
             title="Selecionar este produto"
-            className="w-4 h-4 rounded border-[#cbd5e1] text-[#2a14b4] focus:ring-0 cursor-pointer accent-[#2a14b4]"
+            className="w-4 h-4 rounded border-[#2e3b52] text-[#c5a059] focus:ring-0 cursor-pointer accent-[#c5a059] bg-[#0c1018]"
           />
 
           <button
@@ -288,8 +281,8 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
             aria-label={isCompleted ? 'Desmarcar como concluído' : 'Marcar como concluído'}
             className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
               isCompleted
-                ? 'bg-[#006c4a] text-white shadow-xs'
-                : 'bg-[#f8fafc] border-2 border-[#cbd5e1] hover:border-[#2a14b4]'
+                ? 'bg-gradient-to-r from-[#006c4a] to-[#047857] text-white shadow-xs border border-emerald-400/40'
+                : 'bg-[#090d15] border-2 border-[#2b374e] hover:border-[#c5a059]'
             }`}
           >
             {isCompleted && <Check className="w-4 h-4 stroke-[3]" />}
@@ -306,7 +299,7 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
             }
             onOpenEdit(item);
           }}
-          className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#f1f5f9] border border-[#e2e8f0] shrink-0 group/img cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#2a14b4] mt-0.5"
+          className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#070a10] border border-[#2b374e] shrink-0 group/img cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#c5a059] mt-0.5"
           title={isAdmin ? "Clique para editar dados ou imagem do item" : "Apenas Administrador pode editar"}
         >
           {item.imageUrl && !imgError ? (
@@ -320,12 +313,12 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
               className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[#f8fafc] text-[#94a3b8]">
+            <div className="w-full h-full flex items-center justify-center bg-[#070a10] text-[#64748b]">
               <ImageIcon className="w-5 h-5" />
             </div>
           )}
           {isAdmin && (
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-semibold">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-[#f3e8c7] text-[10px] font-bold font-cinzel">
               Editar
             </div>
           )}
@@ -342,8 +335,8 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                 }
                 onOpenEdit(item);
               }}
-              className={`font-bold text-sm sm:text-base leading-snug cursor-pointer hover:text-[#2a14b4] transition-colors truncate max-w-[280px] ${
-                isCompleted ? 'line-through text-[#64748b]' : 'text-[#131b2e]'
+              className={`font-bold text-sm sm:text-base leading-snug cursor-pointer font-cinzel tracking-wider hover:text-[#c5a059] transition-colors truncate max-w-[280px] ${
+                isCompleted ? 'line-through text-[#64748b]' : 'text-[#f3e8c7]'
               }`}
             >
               {item.name}
@@ -370,23 +363,23 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                   }
                   setShowSwapModal(!showSwapModal);
                 }}
-                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1 text-[11px] font-bold font-cinzel px-2 py-0.5 rounded-md transition-all cursor-pointer ${
                   showSwapModal
-                    ? 'bg-[#2a14b4] text-white shadow-xs'
-                    : 'bg-[#eaedff] text-[#2a14b4] hover:bg-[#dbe1ff] border border-[#c7d2fe]'
+                    ? 'bg-[#c5a059] text-[#080a0f] shadow-xs'
+                    : 'bg-[#141b2a] text-[#c5a059] hover:bg-[#1c253a] border border-[#c5a059]/40'
                 }`}
                 title="Trocar o lugar deste marcador pelo outro na lista"
               >
                 <ArrowLeftRight className="w-3 h-3 text-current" />
                 <span>Trocar Lugar</span>
-                <span className="text-[10px] font-bold opacity-80 px-1 rounded bg-black/10">
+                <span className="text-[10px] font-bold opacity-80 px-1 rounded bg-black/30 text-[#f3e8c7]">
                   #{itemIndex + 1}
                 </span>
                 <ChevronDown className={`w-3 h-3 transition-transform ${showSwapModal ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Direct Up / Down quick swap buttons */}
-              <div className="inline-flex items-center ml-1 border border-[#e2e8f0] rounded-md bg-[#f8fafc] overflow-hidden align-middle">
+              <div className="inline-flex items-center ml-1 border border-[#222c40] rounded-md bg-[#0c1018] overflow-hidden align-middle">
                 <button
                   type="button"
                   disabled={itemIndex === 0}
@@ -398,7 +391,7 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                     }
                     onMoveItem?.(item.id, 'up');
                   }}
-                  className="p-0.5 px-1 text-[#64748b] hover:text-[#2a14b4] hover:bg-[#eaedff] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#64748b] cursor-pointer"
+                  className="p-0.5 px-1 text-[#8e9cb3] hover:text-[#c5a059] hover:bg-[#141b2a] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#64748b] cursor-pointer"
                   title="Subir marcador (trocar com o anterior)"
                 >
                   <ChevronUp className="w-3 h-3" />
@@ -414,7 +407,7 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                     }
                     onMoveItem?.(item.id, 'down');
                   }}
-                  className="p-0.5 px-1 text-[#64748b] hover:text-[#2a14b4] hover:bg-[#eaedff] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#64748b] cursor-pointer"
+                  className="p-0.5 px-1 text-[#8e9cb3] hover:text-[#c5a059] hover:bg-[#141b2a] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#64748b] cursor-pointer"
                   title="Descer marcador (trocar com o seguinte)"
                 >
                   <ChevronDown className="w-3 h-3" />

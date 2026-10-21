@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { AdminAccount } from '../types/shopping';
+import nightCrowsEmblem from '../assets/images/night_crows_emblem_1792563012471.jpg';
 
 export type TabType = 'lista' | 'historico' | 'checkin' | 'rank' | 'status' | 'configuracoes';
 
@@ -61,17 +62,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     user?.displayName || (user?.email ? user.email.split('@')[0] : 'Dispositivo Sincronizado');
 
   return (
-    <aside className="w-64 bg-white dark:bg-[#131826] border-r border-[#e2e8f0] dark:border-[#222b3e] flex flex-col shrink-0 min-h-screen transition-colors duration-200">
-      {/* Brand & App Title */}
-      <div className="p-5 border-b border-[#f1f5f9] dark:border-[#222b3e] flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-[#2a14b4] text-white flex items-center justify-center shadow-md shadow-indigo-900/10 shrink-0">
-          <CheckSquare className="w-5 h-5 stroke-[2.5]" />
+    <aside className="w-64 bg-[#0c0f17] border-r border-[#1f273a] flex flex-col shrink-0 min-h-screen transition-colors duration-200">
+      {/* Brand & App Title - Night Crows */}
+      <div className="p-4 border-b border-[#1f273a] flex items-center gap-3 bg-gradient-to-r from-[#080a0f] to-[#121624]">
+        <div className="w-11 h-11 rounded-xl bg-black border border-[#c5a059]/40 overflow-hidden shadow-lg shadow-black/60 shrink-0 p-0.5">
+          <img
+            src={nightCrowsEmblem}
+            alt="Emblema Night Crows"
+            className="w-full h-full object-cover rounded-lg"
+          />
         </div>
-        <div className="leading-tight">
-          <h1 className="font-bold text-[#131b2e] dark:text-[#f1f5f9] text-lg tracking-tight font-display">
-            Lista
+        <div className="leading-tight min-w-0">
+          <h1 className="font-bold text-[#f3e8c7] text-sm tracking-wider font-cinzel truncate flex items-center gap-1.5">
+            <span>TADALA FILA</span>
           </h1>
-          <p className="text-xs text-[#64748b] dark:text-[#94a3b8] font-medium">Gestão de Craft</p>
+          <p className="text-[10px] text-[#c5a059] font-medium tracking-wide">NIGHT CROWS • CRAFT & FILA</p>
         </div>
       </div>
 
@@ -81,20 +86,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectTab('lista')}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'lista'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
+              ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
+              : 'text-[#8e9cb3] hover:bg-[#141a29] hover:text-[#f3e8c7]'
           }`}
         >
           <div className="flex items-center gap-3">
             <ListOrdered className="w-4 h-4" />
-            <span>Lista</span>
+            <span className="font-cinzel text-xs tracking-wider">Lista de Craft</span>
           </div>
           {pendingCount > 0 && (
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-bold tabular-nums ${
                 currentTab === 'lista'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-[#e0e7ff] text-[#3730a3]'
+                  ? 'bg-[#080a0f]/30 text-[#080a0f]'
+                  : 'bg-[#1e2538] text-[#c5a059] border border-[#c5a059]/30'
               }`}
             >
               {pendingCount}
@@ -106,16 +111,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectTab('historico')}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'historico'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
+              ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
+              : 'text-[#8e9cb3] hover:bg-[#141a29] hover:text-[#f3e8c7]'
           }`}
         >
           <div className="flex items-center gap-3">
             <History className="w-4 h-4" />
-            <span>Histórico</span>
+            <span className="font-cinzel text-xs tracking-wider">Histórico</span>
           </div>
           {!isAdmin && (
-            <span className="text-[10px] text-[#94a3b8] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10" title="Somente Leitura">
+            <span className="text-[10px] text-[#64748b] px-1.5 py-0.5 rounded bg-black/40 border border-[#1f273a]" title="Somente Leitura">
               Leitura
             </span>
           )}
@@ -125,27 +130,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectTab('checkin')}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'checkin'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
+              ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
+              : 'text-[#8e9cb3] hover:bg-[#141a29] hover:text-[#f3e8c7]'
           }`}
         >
           <div className="flex items-center gap-3">
             <Swords className="w-4 h-4" />
-            <span>Check-in</span>
+            <span className="font-cinzel text-xs tracking-wider">Boss Check-in</span>
           </div>
           {openBossesCount > 0 ? (
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold flex items-center gap-0.5 animate-pulse ${
                 currentTab === 'checkin'
-                  ? 'bg-emerald-400 text-emerald-950'
-                  : 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-rose-950 text-rose-200 border border-rose-600'
+                  : 'bg-rose-900/40 text-rose-300 border border-rose-700/60'
               }`}
             >
-              <Flame className="w-3 h-3" />
+              <Flame className="w-3 h-3 text-rose-400" />
               {openBossesCount}
             </span>
           ) : (
-            <span className="text-[10px] text-[#94a3b8] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10">
+            <span className="text-[10px] text-[#64748b] px-1.5 py-0.5 rounded bg-black/40 border border-[#1f273a]">
               Boss
             </span>
           )}
@@ -155,19 +160,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectTab('rank')}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'rank'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
+              ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
+              : 'text-[#8e9cb3] hover:bg-[#141a29] hover:text-[#f3e8c7]'
           }`}
         >
           <div className="flex items-center gap-3">
             <Trophy className="w-4 h-4" />
-            <span>Rank de Pontos</span>
+            <span className="font-cinzel text-xs tracking-wider">Rank Guilda</span>
           </div>
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
               currentTab === 'rank'
-                ? 'bg-amber-400 text-amber-950'
-                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                ? 'bg-amber-950 text-amber-200 border border-amber-600'
+                : 'bg-amber-950/40 text-amber-300 border border-amber-700/40'
             }`}
           >
             🏆
@@ -178,19 +183,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectTab('status')}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'status'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
+              ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
+              : 'text-[#8e9cb3] hover:bg-[#141a29] hover:text-[#f3e8c7]'
           }`}
         >
           <div className="flex items-center gap-3">
             <Zap className="w-4 h-4" />
-            <span>Status</span>
+            <span className="font-cinzel text-xs tracking-wider">Status Combate</span>
           </div>
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
               currentTab === 'status'
-                ? 'bg-amber-400 text-amber-950'
-                : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                ? 'bg-cyan-950 text-cyan-200 border border-cyan-600'
+                : 'bg-cyan-950/40 text-cyan-300 border border-cyan-700/40'
             }`}
           >
             ⚔️ Stats
@@ -201,39 +206,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectTab('configuracoes')}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'configuracoes'
-              ? 'bg-[#3b2fc4] text-white shadow-sm shadow-indigo-950/20'
-              : 'text-[#475569] dark:text-[#94a3b8] hover:bg-[#f2f3ff] dark:hover:bg-[#1a2233] hover:text-[#2a14b4] dark:hover:text-white'
+              ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
+              : 'text-[#8e9cb3] hover:bg-[#141a29] hover:text-[#f3e8c7]'
           }`}
         >
           <div className="flex items-center gap-3">
             <Settings className="w-4 h-4" />
-            <span>Configurações</span>
+            <span className="font-cinzel text-xs tracking-wider">Configurações</span>
           </div>
           {!isAdmin && (
             <span title="Requer Administrador para editar">
-              <Lock className="w-3.5 h-3.5 text-[#94a3b8]" />
+              <Lock className="w-3.5 h-3.5 text-[#64748b]" />
             </span>
           )}
         </button>
       </nav>
 
       {/* Admin Access Panel Card */}
-      <div className="p-3 border-t border-[#f1f5f9] dark:border-[#222b3e] bg-[#fafbfc] dark:bg-[#0f1422] space-y-2">
+      <div className="p-3 border-t border-[#1f273a] bg-[#090b12] space-y-2">
         {isAdmin ? (
-          <div className="p-3 bg-gradient-to-br from-amber-50 to-indigo-50/50 dark:from-amber-950/30 dark:to-indigo-950/30 rounded-2xl border border-amber-300 dark:border-amber-600/50 shadow-2xs">
+          <div className="p-3 bg-gradient-to-br from-[#1b1710] to-[#121624] rounded-2xl border border-[#c5a059]/50 shadow-lg shadow-black/50">
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-400 text-amber-950 flex items-center justify-center font-bold shadow-xs">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#c5a059] to-[#8c6f2e] text-[#080a0f] flex items-center justify-center font-bold shadow-sm">
                   <Crown className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#131b2e] dark:text-amber-100 flex items-center gap-1">
-                    <span>Administrador</span>
-                    <span className="text-[9px] bg-amber-400 text-amber-950 px-1 rounded font-extrabold">
-                      ATIVO
+                  <div className="text-xs font-bold text-[#f3e8c7] font-cinzel flex items-center gap-1">
+                    <span>Comandante</span>
+                    <span className="text-[9px] bg-[#c5a059] text-[#080a0f] px-1 rounded font-extrabold">
+                      ADMIN
                     </span>
                   </div>
-                  <div className="text-[10px] text-[#64748b] dark:text-amber-200/70 truncate max-w-[130px]">
+                  <div className="text-[10px] text-[#8e9cb3] truncate max-w-[130px]">
                     {adminUser?.email || 'admin'}
                   </div>
                 </div>
@@ -242,35 +247,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={onAdminLogout}
-                  className="p-1.5 text-[#64748b] dark:text-amber-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 text-[#8e9cb3] hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
                   title="Sair do modo Admin"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <p className="text-[10px] text-amber-900 dark:text-amber-200/90 font-medium">
-              Permissão total para modificar lista, histórico e configurações.
+            <p className="text-[10px] text-[#c5a059]/90 font-medium">
+              Controle de lista, histórico e parâmetros de combate.
             </p>
           </div>
         ) : (
-          <div className="p-3 bg-white dark:bg-[#161c2a] rounded-2xl border border-[#e2e8f0] dark:border-[#222b3e] shadow-2xs">
+          <div className="p-3 bg-[#0f131d] rounded-2xl border border-[#1f273a] shadow-xs">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-6 h-6 rounded-lg bg-[#f1f5f9] dark:bg-[#1f283b] text-[#64748b] dark:text-[#94a3b8] flex items-center justify-center">
+              <div className="w-6 h-6 rounded-lg bg-[#181f2f] text-[#8e9cb3] flex items-center justify-center">
                 <Lock className="w-3.5 h-3.5" />
               </div>
               <div className="leading-tight">
-                <p className="text-xs font-bold text-[#1e293b] dark:text-[#f1f5f9]">Modo Visualizador</p>
-                <p className="text-[10px] text-[#64748b] dark:text-[#94a3b8]">Somente leitura</p>
+                <p className="text-xs font-bold text-[#f1f5f9] font-cinzel">Membro Observador</p>
+                <p className="text-[10px] text-[#64748b]">Somente leitura</p>
               </div>
             </div>
-            <p className="text-[11px] text-[#64748b] dark:text-[#94a3b8] mt-1 mb-2 leading-relaxed">
-              Apenas quem tem login de Admin pode mexer e editar.
+            <p className="text-[11px] text-[#8e9cb3] mt-1 mb-2 leading-relaxed">
+              Login de Administrador para editar dados da guilda.
             </p>
             <button
               type="button"
               onClick={onOpenAdminLogin}
-              className="w-full py-2 px-3 bg-[#2a14b4] hover:bg-[#200e94] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              className="w-full py-2 px-3 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] text-xs font-bold font-cinzel rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-black/40"
             >
               <KeyRound className="w-3.5 h-3.5" />
               <span>Login de Admin</span>
@@ -279,9 +284,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Device Sync Info */}
-        <div className="px-1 flex items-center justify-center text-[11px] text-[#64748b] dark:text-[#94a3b8]">
-          <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
-            <Wifi className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+        <div className="px-1 flex items-center justify-center text-[11px] text-[#8e9cb3]">
+          <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             Nuvem Sincronizada
           </span>
         </div>

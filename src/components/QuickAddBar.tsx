@@ -29,24 +29,24 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
 
   if (!isAdmin) {
     return (
-      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3 px-4 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+      <div className="bg-[#0f131d]/90 border border-[#c5a059]/30 rounded-2xl p-3 px-4 shadow-lg shadow-black/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#8e9cb3]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-[#1a2233] text-[#c5a059] flex items-center justify-center shrink-0 border border-[#c5a059]/20">
             <Lock className="w-4 h-4" />
           </div>
           <div>
-            <span className="font-bold text-sm block text-amber-950">
+            <span className="font-bold text-sm block text-[#f3e8c7] font-cinzel">
               Modo Visualizador (Somente Leitura)
             </span>
-            <span className="text-amber-800/90 text-xs">
-              Apenas quem tem login de Admin pode adicionar novos itens ou modificar a lista.
+            <span className="text-[#8e9cb3] text-xs">
+              Apenas quem tem login de Admin pode adicionar novos itens de craft ou modificar a lista.
             </span>
           </div>
         </div>
         <button
           type="button"
           onClick={() => onRequireAdmin?.('adicionar itens à lista')}
-          className="self-stretch sm:self-auto px-4 py-2 bg-[#2a14b4] hover:bg-[#200e94] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+          className="self-stretch sm:self-auto px-4 py-2 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] font-bold font-cinzel rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-black/40 transition-all cursor-pointer whitespace-nowrap"
         >
           <KeyRound className="w-3.5 h-3.5" />
           <span>Fazer Login de Admin</span>
@@ -68,19 +68,19 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
   const getRaritySelectClass = (rarity: string) => {
     switch (rarity.toLowerCase()) {
       case 'comum':
-        return 'bg-slate-50 text-slate-700 border-slate-300 focus:border-slate-500';
+        return 'bg-[#121622] text-[#94a3b8] border-[#334155] focus:border-[#c5a059]';
       case 'incomum':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-300 focus:border-emerald-500';
+        return 'bg-[#091a14] text-[#34d399] border-[#065f46] focus:border-[#34d399]';
       case 'raro':
-        return 'bg-sky-50 text-sky-800 border-sky-300 focus:border-sky-500';
+        return 'bg-[#0b172a] text-[#38bdf8] border-[#0369a1] focus:border-[#38bdf8]';
       case 'epic':
       case 'épico':
-        return 'bg-purple-50 text-purple-800 border-purple-300 focus:border-purple-500';
+        return 'bg-[#1c0d29] text-[#c084fc] border-[#7e22ce] focus:border-[#c084fc]';
       case 'lendario':
       case 'lendário':
-        return 'bg-amber-50 text-amber-900 border-amber-300 focus:border-amber-500 font-bold';
+        return 'bg-[#221606] text-[#fbbf24] border-[#b45309] focus:border-[#fbbf24] font-bold';
       default:
-        return 'bg-[#f8fafc] text-[#334155] border-[#e2e8f0] focus:border-[#4338ca]';
+        return 'bg-[#121622] text-[#cbd5e1] border-[#252e42] focus:border-[#c5a059]';
     }
   };
 
@@ -118,11 +118,11 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white rounded-2xl border border-[#e2e8f0] p-2.5 shadow-sm flex flex-wrap md:flex-nowrap items-center gap-2 transition-all focus-within:border-[#c7c4d7]"
+      className="bg-[#0f131d]/95 rounded-2xl border border-[#222a3d] p-2.5 shadow-lg shadow-black/50 flex flex-wrap md:flex-nowrap items-center gap-2 transition-all focus-within:border-[#c5a059]/70"
     >
       {/* Quick Add icon */}
-      <div className="w-9 h-9 rounded-xl bg-[#faf8ff] text-[#2a14b4] flex items-center justify-center shrink-0 ml-1">
-        <Zap className="w-5 h-5 fill-[#2a14b4]" />
+      <div className="w-9 h-9 rounded-xl bg-[#161d2d] text-[#c5a059] flex items-center justify-center shrink-0 ml-1 border border-[#c5a059]/20">
+        <Zap className="w-5 h-5 fill-[#c5a059]" />
       </div>
 
       {/* Item Name Input */}
@@ -133,8 +133,8 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
           list="quick-preset-names"
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
-          placeholder="Adicionar item rápido (ex: Fragmento, Resquício...)"
-          className="w-full px-3 py-2 text-sm text-[#131b2e] placeholder-[#94a3b8] bg-transparent focus:outline-none"
+          placeholder="Adicionar item de craft (ex: Fragmento, Resquício, Lâmina...)"
+          className="w-full px-3 py-2 text-sm text-[#f1f5f9] placeholder-[#64748b] bg-transparent focus:outline-none"
         />
         <datalist id="quick-preset-names">
           {PRESET_ITEM_NAMES.map((p) => (
@@ -152,7 +152,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
           value={brandOrPreference}
           onChange={(e) => setBrandOrPreference(e.target.value)}
           placeholder="Observação / Detalhe (opcional)..."
-          className="w-full px-3 py-1.5 text-xs text-[#131b2e] placeholder-[#94a3b8] bg-[#f8fafc] border border-[#e2e8f0] focus:border-[#4338ca] focus:bg-white rounded-xl transition-all focus:outline-none"
+          className="w-full px-3 py-1.5 text-xs text-[#f1f5f9] placeholder-[#64748b] bg-[#080a0f] border border-[#1f2738] focus:border-[#c5a059] rounded-xl transition-all focus:outline-none shadow-inner"
         />
       </div>
 
@@ -161,7 +161,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className={`border text-xs font-bold rounded-xl px-3 py-2 cursor-pointer focus:outline-none transition-all shadow-2xs ${getRaritySelectClass(
+          className={`border text-xs font-bold rounded-xl px-3 py-2 cursor-pointer focus:outline-none transition-all shadow-sm ${getRaritySelectClass(
             category
           )}`}
         >
@@ -174,23 +174,23 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
       </div>
 
       {/* Stepper (- 1 +) */}
-      <div className="flex items-center bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-0.5 shrink-0">
+      <div className="flex items-center bg-[#080a0f] border border-[#1f2738] rounded-xl p-0.5 shrink-0">
         <button
           type="button"
           onClick={handleDecrease}
           disabled={quantity <= 1}
-          className="w-8 h-8 flex items-center justify-center text-[#475569] hover:bg-[#e2e8f0] active:scale-95 disabled:opacity-30 disabled:pointer-events-none rounded-lg transition-all"
+          className="w-8 h-8 flex items-center justify-center text-[#8e9cb3] hover:bg-[#151c2a] hover:text-[#f1f5f9] active:scale-95 disabled:opacity-30 disabled:pointer-events-none rounded-lg transition-all"
           aria-label="Diminuir"
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
-        <span className="w-8 text-center text-sm font-bold tabular-nums text-[#131b2e]">
+        <span className="w-8 text-center text-sm font-bold tabular-nums text-[#f3e8c7]">
           {quantity}
         </span>
         <button
           type="button"
           onClick={handleIncrease}
-          className="w-8 h-8 flex items-center justify-center text-[#475569] hover:bg-[#e2e8f0] active:scale-95 rounded-lg transition-all"
+          className="w-8 h-8 flex items-center justify-center text-[#8e9cb3] hover:bg-[#151c2a] hover:text-[#f1f5f9] active:scale-95 rounded-lg transition-all"
           aria-label="Aumentar"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -200,7 +200,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
       {/* Submit Button */}
       <button
         type="submit"
-        className="w-full sm:w-auto bg-[#2a14b4] hover:bg-[#200e94] active:bg-[#190979] text-white px-5 py-2.5 h-10 rounded-xl text-xs sm:text-sm font-bold transition-all active:scale-[0.98] shrink-0 cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+        className="w-full sm:w-auto bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] px-5 py-2.5 h-10 rounded-xl text-xs sm:text-sm font-bold font-cinzel transition-all active:scale-[0.98] shrink-0 cursor-pointer shadow-md shadow-black/50 flex items-center justify-center gap-1.5"
       >
         <Plus className="w-4 h-4 shrink-0" />
         <span>Adicionar</span>

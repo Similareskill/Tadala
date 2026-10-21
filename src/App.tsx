@@ -7,6 +7,7 @@ import resquicioImg from './assets/images/resquicio_relic_icon_1790391724781.jpg
 import laminaDouradaImg from './assets/images/lamina_dourada_icon_1790391871978.jpg';
 import grimorioImg from './assets/images/grimorio_verde_icon_1790391884226.jpg';
 import runaCelesteImg from './assets/images/runa_celeste_icon_1790392045461.jpg';
+import nightCrowsBg from './assets/images/night_crows_wallpaper_1792563471663.jpg';
 import { formatRelativeTime, playHapticSound } from './utils/helpers';
 import { Sidebar, TabType } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -948,11 +949,19 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8ff] dark:bg-[#0b0f19] text-[#131b2e] dark:text-[#f1f5f9] flex flex-col antialiased transition-colors duration-200">
+    <div
+      className="min-h-screen text-[#f1f5f9] flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200 relative"
+      style={{
+        backgroundImage: `linear-gradient(to bottom, rgba(5, 7, 12, 0.80) 0%, rgba(8, 11, 18, 0.88) 45%, rgba(5, 7, 12, 0.95) 100%), url(${nightCrowsBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        backgroundAttachment: 'fixed',
+      }}
+    >
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-[#131b2e] dark:bg-white text-white dark:text-[#0b0f19] px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xl flex items-center gap-2 animate-in slide-in-from-top-2 duration-150">
-          <Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+        <div className="fixed top-4 right-4 z-50 bg-[#121624] text-[#f3e8c7] border border-[#c5a059]/50 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-2xl shadow-black/80 flex items-center gap-2 animate-in slide-in-from-top-2 duration-150">
+          <Check className="w-4 h-4 text-[#c5a059]" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -1056,12 +1065,12 @@ export default function App() {
             {currentTab === 'lista' && (
               <div className="space-y-5">
                 {/* Breadcrumbs */}
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#64748b]">
-                  <span className="hover:text-[#2a14b4] cursor-pointer">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#8e9cb3]">
+                  <span className="hover:text-[#c5a059] cursor-pointer">
                     {settings.householdName}
                   </span>
                   <span>&gt;</span>
-                  <span className="text-[#131b2e] font-bold">
+                  <span className="text-[#f3e8c7] font-bold font-cinzel tracking-wider">
                     {settings.listName}
                   </span>
                 </div>
@@ -1093,11 +1102,11 @@ export default function App() {
                             setIsRenamingList(false);
                           }
                         }}
-                        className="text-2xl sm:text-3xl font-extrabold text-[#131b2e] bg-white border border-[#2a14b4] rounded-xl px-2.5 py-1 focus:outline-none"
+                        className="text-2xl sm:text-3xl font-extrabold text-[#f3e8c7] font-cinzel bg-[#0f131d] border border-[#c5a059] rounded-xl px-2.5 py-1 focus:outline-none"
                       />
                     ) : (
                       <h1
-                        className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#131b2e] tracking-tight font-display hover:text-[#2a14b4] transition-colors cursor-pointer select-text"
+                        className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#f3e8c7] tracking-wider font-cinzel hover:text-[#dfb96c] transition-colors cursor-pointer select-text drop-shadow-md"
                         title={isAdmin ? "Clique duas vezes para renomear" : "Apenas Administrador pode renomear a lista"}
                         onDoubleClick={() => {
                           if (!requireAdmin('Apenas o Administrador pode renomear o título da lista.')) return;
@@ -1109,18 +1118,18 @@ export default function App() {
                       </h1>
                     )}
 
-                    {/* Stats pill matching screenshot */}
-                    <div className="inline-flex items-center gap-2 bg-[#eaedff] text-[#2a14b4] px-3 py-1 rounded-full text-xs font-bold border border-[#d2d9f4]">
-                      <span className="w-2 h-2 rounded-full bg-[#2a14b4]"></span>
-                      <span className="tabular-nums">
-                        {totalUnits} unidades • {totalProducts} produtos
+                    {/* Stats pill matching Night Crows */}
+                    <div className="inline-flex items-center gap-2 bg-[#101421] text-[#c5a059] px-3.5 py-1.5 rounded-full text-xs font-bold border border-[#c5a059]/40 shadow-md shadow-black/40">
+                      <span className="w-2 h-2 rounded-full bg-[#c5a059] animate-pulse"></span>
+                      <span className="tabular-nums font-mono text-[11px] text-[#f1f5f9]">
+                        {totalUnits} unidades • {totalProducts} itens
                       </span>
                     </div>
                   </div>
 
                   {/* Updated time info */}
-                  <div className="flex items-center gap-1.5 text-xs text-[#64748b]">
-                    <Clock className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5 text-xs text-[#8e9cb3]">
+                    <Clock className="w-3.5 h-3.5 text-[#c5a059]" />
                     <span>{lastUpdatedText}</span>
                   </div>
                 </div>
@@ -1171,17 +1180,17 @@ export default function App() {
 
                 {/* List Items Cards */}
                 {filteredItems.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-[#e2e8f0] p-10 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-[#faf8ff] text-[#2a14b4] flex items-center justify-center mx-auto mb-3">
+                  <div className="bg-[#0e131e]/90 backdrop-blur-md rounded-2xl border border-[#242e42] p-10 text-center shadow-2xl shadow-black/60">
+                    <div className="w-12 h-12 rounded-2xl bg-[#141b2a] text-[#c5a059] flex items-center justify-center mx-auto mb-3 border border-[#c5a059]/30 shadow-inner">
                       <ShoppingBag className="w-6 h-6" />
                     </div>
-                    <h3 className="font-bold text-base text-[#131b2e] mb-1">
-                      Nenhum produto encontrado
+                    <h3 className="font-bold text-base text-[#f3e8c7] font-cinzel tracking-wide mb-1">
+                      Nenhum item de craft encontrado
                     </h3>
-                    <p className="text-xs text-[#64748b] mb-4">
+                    <p className="text-xs text-[#8e9cb3] mb-4">
                       {filterSearch || globalSearch
                         ? 'Tente ajustar os filtros de busca para encontrar o item desejado.'
-                        : 'Sua lista está vazia. Adicione produtos acima ou restaure os dados de exemplo.'}
+                        : 'Sua lista está vazia. Adicione itens acima ou use a barra rápida.'}
                     </p>
                     <button
                       type="button"
@@ -1190,9 +1199,9 @@ export default function App() {
                         setItemToEdit(null);
                         setIsItemModalOpen(true);
                       }}
-                      className="px-4 py-2 bg-[#2a14b4] text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs hover:bg-[#200e94] transition-colors"
+                      className="px-5 py-2.5 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] rounded-xl text-xs font-bold font-cinzel cursor-pointer shadow-md shadow-black/50 transition-all active:scale-95"
                     >
-                      + Novo Item com Imagem
+                      + Novo Item de Craft
                     </button>
                   </div>
                 ) : (

@@ -33,20 +33,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
       {/* Search Input within list */}
       <div className="flex-1 relative">
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94a3b8]">
-          <Search className="w-4 h-4" />
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#64748b]">
+          <Search className="w-4 h-4 text-[#c5a059]" />
         </div>
         <input
           type="text"
           value={filterSearch}
           onChange={(e) => onFilterSearchChange(e.target.value)}
-          placeholder="Filtrar nesta lista de compras..."
-          className="w-full pl-10 pr-3 py-2 bg-white border border-[#e2e8f0] focus:border-[#4338ca] rounded-xl text-sm text-[#131b2e] placeholder-[#94a3b8] transition-colors focus:outline-none"
+          placeholder="Filtrar nesta lista de craft..."
+          className="w-full pl-10 pr-3 py-2 bg-[#0c1018]/90 border border-[#222c40] focus:border-[#c5a059] focus:bg-[#111724] rounded-xl text-sm text-[#f1f5f9] placeholder-[#64748b] transition-all focus:outline-none shadow-inner"
         />
         {filterSearch && (
           <button
             onClick={() => onFilterSearchChange('')}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-[#94a3b8] hover:text-[#475569]"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-[#8e9cb3] hover:text-[#f3e8c7] cursor-pointer"
           >
             Limpar
           </button>
@@ -55,14 +55,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
       {/* Filter Tabs & Category Selector */}
       <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-        <div className="flex items-center bg-white p-1 rounded-xl border border-[#e2e8f0] shrink-0">
+        <div className="flex items-center bg-[#0c1018]/90 p-1 rounded-xl border border-[#222c40] shrink-0">
           <button
             type="button"
             onClick={() => onStatusFilterChange('todos')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all font-cinzel cursor-pointer ${
               statusFilter === 'todos'
-                ? 'bg-[#3b2fc4] text-white shadow-sm'
-                : 'text-[#475569] hover:text-[#1e293b] hover:bg-[#f1f5f9]'
+                ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] shadow-sm'
+                : 'text-[#8e9cb3] hover:text-[#f3e8c7] hover:bg-[#151c2a]'
             }`}
           >
             Todos ({counts.total})
@@ -73,11 +73,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         <select
           value={selectedCategory}
           onChange={(e) => onSelectedCategoryChange(e.target.value)}
-          className="bg-white border border-[#e2e8f0] text-xs font-semibold text-[#334155] rounded-xl px-3 py-2 cursor-pointer focus:outline-none focus:border-[#4338ca] shrink-0"
+          className="bg-[#0c1018]/90 border border-[#222c40] text-xs font-bold font-cinzel text-[#f3e8c7] rounded-xl px-3 py-2 cursor-pointer focus:outline-none focus:border-[#c5a059] shrink-0 shadow-inner"
         >
-          <option value="all">Todas as raridades</option>
+          <option value="all" className="bg-[#0c1018] text-[#f3e8c7]">Todas as raridades</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>
+            <option key={cat} value={cat} className="bg-[#0c1018] text-[#f3e8c7]">
               {cat}
             </option>
           ))}
