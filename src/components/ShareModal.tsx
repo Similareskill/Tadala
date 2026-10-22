@@ -19,6 +19,9 @@ interface ShareModalProps {
   currentNickname: string;
   onUpdateNickname: (newNick: string) => void;
   onOpenAuthModal?: () => void;
+  connectedDevices?: number;
+  syncStatus?: 'connected' | 'connecting' | 'syncing' | 'offline';
+  onForceResync?: () => Promise<void> | void;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -27,12 +30,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   currentNickname,
   onUpdateNickname,
   onOpenAuthModal,
+  connectedDevices = 1,
+  syncStatus = 'connected',
+  onForceResync,
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [tempNick, setTempNick] = useState(currentNickname);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const currentUrl = typeof window !== 'undefined'
+    ? (window.location.href.includes('?') ? window.location.href : `${window.location.origin}${window.location.pathname}?room=tadala_fila`)
+    : '';
 
   useEffect(() => {
     if (isOpen) {
@@ -72,9 +82,26 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `Aqui está nossa Lista de Compras compartilhada em tempo real (sem precisar de senha):\n${currentUrl}`
+      `Aqui está nossa Lista de Craft da Guilda TADALA FILA sincronizada em tempo real (sem precisar de senha):\n${currentUrl}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+  };
+
+  const handleTriggerResync = async () => {
+    if (isSyncingNow) return;
+    setIsSyncingNow(true);
+    try {
+      if (onForceResync) {
+        await onForceResync();
+      }
+      setSyncFeedback('Dispositivos Sincronizados com Sucesso!');
+      setTimeout(() => setSyncFeedback(null), 3500);
+    } catch {
+      setSyncFeedback('Tentando sincronizar...');
+      setTimeout(() => setSyncFeedback(null), 3000);
+    } finally {
+      setIsSyncingNow(false);
+    }
   };
 
   const handleSaveNickname = (e: React.FormEvent) => {
@@ -192,6 +219,27 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 >
                   <Share2 className="w-4 h-4" />
                   <span>Enviar no WhatsApp</span>
+                </button>
+              </div>
+
+              {/* Live Connection Status & Manual Resync */}
+              <div className="pt-2 border-t border-[#e2e8f0] flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="font-bold text-[#131b2e]">
+                    {connectedDevices} {connectedDevices === 1 ? 'Aparelho Conectado' : 'Aparelhos Conectados'}
+                  </span>
+                  <span className="text-[11px] text-[#64748b]">• Em tempo real</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTriggerResync}
+                  disabled={isSyncingNow}
+                  className="px-3 py-1.5 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#1e293b] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className={isSyncingNow ? 'animate-spin' : ''}>🔄</span>
+                  <span>{syncFeedback || (isSyncingNow ? 'Sincronizando...' : 'Testar Sincronização')}</span>
                 </button>
               </div>
             </div>

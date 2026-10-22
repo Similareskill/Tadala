@@ -30,6 +30,8 @@ interface TopHeaderProps {
   adminUser?: AdminAccount | null;
   onOpenAdminLogin?: () => void;
   onAdminLogout?: () => void;
+  connectedDevices?: number;
+  syncStatus?: 'connected' | 'connecting' | 'syncing' | 'offline';
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -46,6 +48,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   adminUser,
   onOpenAdminLogin,
   onAdminLogout,
+  connectedDevices = 1,
+  syncStatus = 'connected',
 }) => {
   const userInitials = user?.displayName
     ? user.displayName.slice(0, 2).toUpperCase()
@@ -157,10 +161,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           type="button"
           onClick={onOpenShareModal}
           className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#0d141e] border border-emerald-600/40 text-emerald-300 text-xs font-semibold hover:bg-[#121c2c] transition-colors cursor-pointer"
-          title="Dispositivos sincronizados em tempo real com o banco de dados central. Clique para abrir em outro celular ou tablet."
+          title={`Sincronização em tempo real ativa. ${connectedDevices} ${connectedDevices === 1 ? 'dispositivo conectado' : 'dispositivos conectados'}. Clique para abrir no celular.`}
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="text-[11px] font-bold">Nuvem Ativa</span>
+          <span className={`w-2 h-2 rounded-full ${syncStatus === 'syncing' ? 'bg-amber-400 animate-spin' : 'bg-emerald-400 animate-pulse'}`}></span>
+          <span className="text-[11px] font-bold">
+            {syncStatus === 'syncing' ? 'Sincronizando' : connectedDevices > 1 ? `${connectedDevices} Aparelhos` : 'Nuvem Ativa'}
+          </span>
         </button>
 
         {/* Dark / Light Theme Toggle Button */}

@@ -16,6 +16,7 @@ import {
   notifyQuotaExceeded,
   executeSafeFirestoreWrite,
 } from '../utils/firestoreErrorHandler';
+import { deviceSyncService } from './deviceSyncService';
 
 const BOSS_EVENTS_COLLECTION = 'boss_events';
 const BOSS_CHECKINS_COLLECTION = 'boss_checkins';
@@ -42,6 +43,7 @@ const bossListeners: Set<(events: BossEvent[]) => void> = new Set();
 const checkinListeners: Set<(checkins: BossCheckin[]) => void> = new Set();
 
 function notifyBossListeners(events: BossEvent[]) {
+  deviceSyncService.pushStateUpdate({ bossEvents: events }, 'boss_events_update').catch(() => {});
   bossListeners.forEach((listener) => {
     try {
       listener(events);
@@ -52,6 +54,7 @@ function notifyBossListeners(events: BossEvent[]) {
 }
 
 function notifyCheckinListeners(checkins: BossCheckin[]) {
+  deviceSyncService.pushStateUpdate({ checkins }, 'boss_checkins_update').catch(() => {});
   checkinListeners.forEach((listener) => {
     try {
       listener(checkins);
