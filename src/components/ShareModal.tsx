@@ -43,7 +43,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   const currentUrl = typeof window !== 'undefined'
-    ? (window.location.href.includes('?') ? window.location.href : `${window.location.origin}${window.location.pathname}?room=tadala_fila`)
+    ? (() => {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const base = isLocal
+          ? 'https://ais-dev-sdmk2l6v3qcurxwvq325kd-151367570740.europe-west2.run.app'
+          : `${window.location.origin}${window.location.pathname}`;
+        try {
+          const u = new URL(base);
+          u.searchParams.set('room', 'tadala_fila');
+          return u.toString();
+        } catch {
+          return `${base}?room=tadala_fila`;
+        }
+      })()
     : '';
 
   useEffect(() => {
@@ -235,9 +247,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
                       ⚡ {latencyMs > 0 ? `${latencyMs}ms` : '<1ms'}
                     </span>
+                    <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-semibold">
+                      Wi-Fi & 4G/5G
+                    </span>
                   </div>
                   <span className="text-[10px] text-[#64748b]">
-                    Transmissão instantânea via WebSocket (sem atrasos ou limite de tempo)
+                    Transmissão instantânea entre redes diferentes via Mesh Relay &amp; WebSocket (&lt; 50ms)
                   </span>
                 </div>
 

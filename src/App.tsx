@@ -246,8 +246,8 @@ export default function App() {
 
     const unsubDeviceData = deviceSyncService.subscribe((partial, source) => {
       if (partial.items !== undefined && Array.isArray(partial.items)) {
-        if (source === 'ws-init' && partial.items.length === 0) {
-          // If server was freshly initialized or empty, seed the server from client items
+        if ((source === 'ws-init' || source === 'global-cached-snapshot') && partial.items.length === 0) {
+          // If server or relay was freshly initialized or empty, seed from current client items
           setItems((current) => {
             if (current && current.length > 0) {
               deviceSyncService.pushStateUpdate({ items: current }, 'client_seed').catch(() => {});
