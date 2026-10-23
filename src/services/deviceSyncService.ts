@@ -325,10 +325,13 @@ class DeviceSyncService {
       this.globalWs.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.event === 'message' && data.message) {
+          if (data.event === 'message' && typeof data.message === 'string') {
+            const trimmed = data.message.trim();
+            if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return;
+
             let msgObj: any;
             try {
-              msgObj = JSON.parse(data.message);
+              msgObj = JSON.parse(trimmed);
             } catch {
               return;
             }
@@ -361,9 +364,7 @@ class DeviceSyncService {
               }
             }
           }
-        } catch (err) {
-          console.warn('Error in global relay onmessage:', err);
-        }
+        } catch {}
       };
 
       this.globalWs.onclose = () => {
@@ -400,11 +401,18 @@ class DeviceSyncService {
       this.globalEventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.event === 'message' && data.message) {
-            const msgObj = JSON.parse(data.message);
-            if (msgObj.type === 'GLOBAL_SYNC_STATE' && msgObj.payload && msgObj.sourceDevice !== this.deviceId) {
-              this.recordPeerActivity(msgObj.sourceDevice);
-              this.handleRemoteState(msgObj.payload, 'global-relay-sse', msgObj.version);
+          if (data.event === 'message' && typeof data.message === 'string') {
+            const trimmed = data.message.trim();
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+              try {
+                const msgObj = JSON.parse(trimmed);
+                if (msgObj.type === 'PEER_PING' && msgObj.deviceId) {
+                  this.recordPeerActivity(msgObj.deviceId, msgObj.name, msgObj.network, msgObj.region);
+                } else if (msgObj.type === 'GLOBAL_SYNC_STATE' && msgObj.payload && msgObj.sourceDevice !== this.deviceId) {
+                  this.recordPeerActivity(msgObj.sourceDevice);
+                  this.handleRemoteState(msgObj.payload, 'global-relay-sse', msgObj.version);
+                }
+              } catch {}
             }
           }
         } catch {}

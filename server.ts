@@ -161,14 +161,21 @@ function startGlobalRelayBridge() {
     relayWs.on('message', (raw) => {
       try {
         const data = JSON.parse(raw.toString());
-        if (data.event === 'message' && data.message) {
-          const msg = JSON.parse(data.message);
-          if (msg.type === 'GLOBAL_SYNC_STATE' && msg.payload && msg.sourceDevice !== 'server-backend') {
-            applyPayload(msg.payload, msg.sourceDevice, 'global_mesh_sync', false);
+        if (data.event === 'message' && typeof data.message === 'string') {
+          const trimmed = data.message.trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              const msg = JSON.parse(trimmed);
+              if (msg && typeof msg === 'object' && msg.type === 'GLOBAL_SYNC_STATE' && msg.payload && msg.sourceDevice !== 'server-backend') {
+                applyPayload(msg.payload, msg.sourceDevice, 'global_mesh_sync', false);
+              }
+            } catch {
+              // Ignore non-sync messages silently
+            }
           }
         }
-      } catch (err) {
-        console.warn('[Server Global Relay] Message parse error:', err);
+      } catch {
+        // Ignore unparseable frames silently
       }
     });
     relayWs.on('close', () => {
