@@ -6,16 +6,13 @@ export function formatCurrency(amount: number | undefined, symbol = 'R$'): strin
 }
 
 // Relative time formatting in Portuguese
-export function formatRelativeTime(dateString?: string | null): string {
-  if (!dateString) return 'recentemente';
+export function formatRelativeTime(dateString: string): string {
   try {
     const date = new Date(dateString);
-    const timestamp = date.getTime();
-    if (isNaN(timestamp)) return 'recentemente';
     const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - timestamp) / (1000 * 60));
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
 
-    if (diffInMinutes < 1) return 'agora mesmo';
+    if (diffInMinutes < 1) return 'Agora mesmo';
     if (diffInMinutes === 1) return 'há 1 minuto';
     if (diffInMinutes < 60) return `há ${diffInMinutes} minutos`;
 
@@ -32,11 +29,9 @@ export function formatRelativeTime(dateString?: string | null): string {
 }
 
 // Full date formatting in Portuguese
-export function formatDate(dateString?: string | null): string {
-  if (!dateString) return 'Data não definida';
+export function formatDate(dateString: string): string {
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'short',
@@ -45,7 +40,7 @@ export function formatDate(dateString?: string | null): string {
       minute: '2-digit',
     });
   } catch {
-    return String(dateString);
+    return dateString;
   }
 }
 

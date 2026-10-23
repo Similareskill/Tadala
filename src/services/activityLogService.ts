@@ -11,7 +11,6 @@ import {
 import { db } from './firebase';
 import { ActivityLogEntry } from '../types/shopping';
 import { executeSafeFirestoreWrite } from '../utils/firestoreErrorHandler';
-import { deviceSyncService } from './deviceSyncService';
 
 const ACTIVITY_STORAGE_KEY = 'shopping_activity_logs_v1';
 export const ACTIVITY_COLLECTION = 'activity_logs';
@@ -89,7 +88,6 @@ const memoryListeners: Set<(logs: ActivityLogEntry[]) => void> = new Set();
 function broadcastLogs(logs: ActivityLogEntry[]) {
   cachedLogs = logs;
   saveLocalLogs(logs);
-  deviceSyncService.pushStateUpdate({ activityLogs: logs }, 'activity_logs').catch(() => {});
   memoryListeners.forEach((fn) => {
     try {
       fn(logs);

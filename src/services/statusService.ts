@@ -10,7 +10,6 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { MemberStatus } from '../types/shopping';
-import { deviceSyncService } from './deviceSyncService';
 
 const STATUSES_COLLECTION = 'member_statuses';
 const LOCAL_STORAGE_KEY = 'guild_member_statuses_v1';
@@ -237,7 +236,6 @@ export const statusService = {
     // Re-sort by Power
     current.sort((a, b) => (b.power || 0) - (a.power || 0));
     saveStoredLocal(current);
-    deviceSyncService.pushStateUpdate({ memberStatuses: current }, 'save_status').catch(() => {});
 
     // Save to Firestore
     await executeSafeFirestoreWrite(async () => {
@@ -250,7 +248,6 @@ export const statusService = {
     // Local optimistic update
     const current = getStoredLocal().filter((s) => s.id !== id);
     saveStoredLocal(current);
-    deviceSyncService.pushStateUpdate({ memberStatuses: current }, 'delete_status').catch(() => {});
 
     // Remote delete
     await executeSafeFirestoreWrite(async () => {
@@ -265,7 +262,6 @@ export const statusService = {
     // Local optimistic update
     const current = getStoredLocal().filter((s) => !idSet.has(s.id));
     saveStoredLocal(current);
-    deviceSyncService.pushStateUpdate({ memberStatuses: current }, 'delete_multiple_statuses').catch(() => {});
 
     // Remote batch delete
     await executeSafeFirestoreWrite(async () => {
