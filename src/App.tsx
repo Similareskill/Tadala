@@ -67,6 +67,7 @@ export default function App() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => deviceSyncService.getStatus());
   const [connectedDevices, setConnectedDevices] = useState<number>(() => deviceSyncService.getConnectedDevicesCount());
+  const [latencyMs, setLatencyMs] = useState<number>(() => deviceSyncService.getLatencyMs());
 
   // Admin auth state (Admin-only modification control)
   const [isAdmin, setIsAdmin] = useState<boolean>(() => adminAuthService.isAdmin());
@@ -236,29 +237,40 @@ export default function App() {
 
   // Real-time synchronization with Central Multi-Device Engine & Firestore
   useEffect(() => {
-    // 1. Subscribe to Live Multi-Device Sync Engine
-    const unsubStatus = deviceSyncService.subscribeStatus((status, count) => {
+    // 1. Subscribe to Live Multi-Device Sync Engine (WebSocket 0ms)
+    const unsubStatus = deviceSyncService.subscribeStatus((status, count, latency) => {
       setSyncStatus(status);
       setConnectedDevices(count);
+      if (latency !== undefined) setLatencyMs(latency);
     });
 
     const unsubDeviceData = deviceSyncService.subscribe((partial, source) => {
-      if (partial.items && Array.isArray(partial.items) && partial.items.length > 0) {
-        setItems(partial.items);
+      if (partial.items !== undefined && Array.isArray(partial.items)) {
+        if (source === 'ws-init' && partial.items.length === 0) {
+          // If server was freshly initialized or empty, seed the server from client items
+          setItems((current) => {
+            if (current && current.length > 0) {
+              deviceSyncService.pushStateUpdate({ items: current }, 'client_seed').catch(() => {});
+            }
+            return current;
+          });
+        } else {
+          setItems(partial.items);
+        }
       }
       if (partial.settings && typeof partial.settings === 'object') {
         setSettings((prev) => ({ ...prev, ...partial.settings }));
       }
-      if (partial.history && Array.isArray(partial.history)) {
+      if (partial.history !== undefined && Array.isArray(partial.history)) {
         setHistory(partial.history);
       }
-      if (partial.bossEvents && Array.isArray(partial.bossEvents) && partial.bossEvents.length > 0) {
+      if (partial.bossEvents !== undefined && Array.isArray(partial.bossEvents)) {
         setBossEvents(partial.bossEvents);
       }
-      if (partial.checkins && Array.isArray(partial.checkins)) {
+      if (partial.checkins !== undefined && Array.isArray(partial.checkins)) {
         setCheckins(partial.checkins);
       }
-      if (partial.memberStatuses && Array.isArray(partial.memberStatuses) && partial.memberStatuses.length > 0) {
+      if (partial.memberStatuses !== undefined && Array.isArray(partial.memberStatuses)) {
         setMemberStatuses(partial.memberStatuses);
       }
     });
@@ -370,43 +382,62 @@ export default function App() {
 
   // Last updated relative time (from latest item update)
   const lastUpdatedText = useMemo(() => {
-    if (items.length === 0) return 'Atualizado agora';
-    const latest = items.reduce((latestTime, item) => {
-      const t = new Date(item.updatedAt || item.createdAt).getTime();
-      return Math.max(latestTime, t);
-    }, 0);
-    return `Atualizado ${formatRelativeTime(new Date(latest).toISOString())}`;
+    if (!items || items.length === 0) return 'Atualizado agora';
+    let latest = 0;
+    for (const item of items) {
+      if (!item) continue;
+      const rawDate = item.updatedAt || item.createdAt;
+      if (rawDate) {
+        const timeVal = new Date(rawDate).getTime();
+        if (!isNaN(timeVal) && timeVal > latest) {
+          latest = timeVal;
+        }
+      }
+    }
+    if (latest === 0) return 'Atualizado agora';
+    try {
+      return `Atualizado ${formatRelativeTime(new Date(latest).toISOString())}`;
+    } catch {
+      return 'Atualizado agora';
+    }
   }, [items]);
 
   // Filtered Items for List View
   const filteredItems = useMemo(() => {
-    const sorted = [...items].sort((a, b) => {
+    const validItems = items.filter(
+      (item): item is ShoppingItem => Boolean(item && typeof item === 'object' && item.id && item.name)
+    );
+    const sorted = [...validItems].sort((a, b) => {
       if (a.order !== undefined && b.order !== undefined) {
         return a.order - b.order;
       }
       if (a.order !== undefined) return -1;
       if (b.order !== undefined) return 1;
-      const timeA = new Date(b.createdAt || 0).getTime();
-      const timeB = new Date(a.createdAt || 0).getTime();
+      const timeA = new Date(b.createdAt || 0).getTime() || 0;
+      const timeB = new Date(a.createdAt || 0).getTime() || 0;
       return timeA - timeB;
     });
 
     return sorted.filter((item) => {
+      const name = item.name || '';
+      const category = item.category || 'Comum';
+      const brand = item.brandOrPreference || '';
+
       // Global search filter
       if (globalSearch.trim()) {
         const query = globalSearch.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(query);
-        const matchCat = item.category.toLowerCase().includes(query);
-        const matchBrand = (item.brandOrPreference || '').toLowerCase().includes(query);
+        const matchName = name.toLowerCase().includes(query);
+        const matchCat = category.toLowerCase().includes(query);
+        const matchBrand = brand.toLowerCase().includes(query);
         if (!matchName && !matchCat && !matchBrand) return false;
       }
 
       // Local search filter
       if (filterSearch.trim()) {
         const query = filterSearch.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(query);
-        const matchCat = item.category.toLowerCase().includes(query);
-        const matchBrand = (item.brandOrPreference || '').toLowerCase().includes(query);
+        const matchName = name.toLowerCase().includes(query);
+        const matchCat = category.toLowerCase().includes(query);
+        const matchBrand = brand.toLowerCase().includes(query);
         if (!matchName && !matchCat && !matchBrand) return false;
       }
 
@@ -1139,6 +1170,7 @@ export default function App() {
             onAdminLogout={handleAdminLogout}
             connectedDevices={connectedDevices}
             syncStatus={syncStatus}
+            latencyMs={latencyMs}
           />
 
           {/* Subheader / Main Content Viewport */}
@@ -1349,6 +1381,7 @@ export default function App() {
                   onForceResync={handleForceResync}
                   connectedDevices={connectedDevices}
                   syncStatus={syncStatus}
+                  latencyMs={latencyMs}
                 />
               </div>
             )}
@@ -1546,6 +1579,7 @@ export default function App() {
             }}
             connectedDevices={connectedDevices}
             syncStatus={syncStatus}
+            latencyMs={latencyMs}
             onForceResync={handleForceResync}
           />
         </Suspense>

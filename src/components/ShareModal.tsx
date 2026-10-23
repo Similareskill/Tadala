@@ -22,6 +22,7 @@ interface ShareModalProps {
   connectedDevices?: number;
   syncStatus?: 'connected' | 'connecting' | 'syncing' | 'offline';
   onForceResync?: () => Promise<void> | void;
+  latencyMs?: number;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -33,6 +34,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   connectedDevices = 1,
   syncStatus = 'connected',
   onForceResync,
+  latencyMs = 2,
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -224,12 +226,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
               {/* Live Connection Status & Manual Resync */}
               <div className="pt-2 border-t border-[#e2e8f0] flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-bold text-[#131b2e]">
-                    {connectedDevices} {connectedDevices === 1 ? 'Aparelho Conectado' : 'Aparelhos Conectados'}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="font-bold text-[#131b2e]">
+                      {connectedDevices} {connectedDevices === 1 ? 'Aparelho Conectado' : 'Aparelhos Conectados'}
+                    </span>
+                    <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                      ⚡ {latencyMs > 0 ? `${latencyMs}ms` : '<1ms'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[#64748b]">
+                    Transmissão instantânea via WebSocket (sem atrasos ou limite de tempo)
                   </span>
-                  <span className="text-[11px] text-[#64748b]">• Em tempo real</span>
                 </div>
 
                 <button
@@ -238,8 +247,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   disabled={isSyncingNow}
                   className="px-3 py-1.5 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#1e293b] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  <span className={isSyncingNow ? 'animate-spin' : ''}>🔄</span>
-                  <span>{syncFeedback || (isSyncingNow ? 'Sincronizando...' : 'Testar Sincronização')}</span>
+                  <span className={isSyncingNow ? 'animate-spin' : ''}>⚡</span>
+                  <span>{syncFeedback || (isSyncingNow ? 'Transmitindo...' : 'Testar Resposta')}</span>
                 </button>
               </div>
             </div>

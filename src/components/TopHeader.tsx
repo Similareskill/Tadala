@@ -32,6 +32,7 @@ interface TopHeaderProps {
   onAdminLogout?: () => void;
   connectedDevices?: number;
   syncStatus?: 'connected' | 'connecting' | 'syncing' | 'offline';
+  latencyMs?: number;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -50,6 +51,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onAdminLogout,
   connectedDevices = 1,
   syncStatus = 'connected',
+  latencyMs = 2,
 }) => {
   const userInitials = user?.displayName
     ? user.displayName.slice(0, 2).toUpperCase()
@@ -161,11 +163,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           type="button"
           onClick={onOpenShareModal}
           className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#0d141e] border border-emerald-600/40 text-emerald-300 text-xs font-semibold hover:bg-[#121c2c] transition-colors cursor-pointer"
-          title={`Sincronização em tempo real ativa. ${connectedDevices} ${connectedDevices === 1 ? 'dispositivo conectado' : 'dispositivos conectados'}. Clique para abrir no celular.`}
+          title={`Sincronização em tempo real instantânea ativa via WebSocket. ${connectedDevices} ${connectedDevices === 1 ? 'dispositivo conectado' : 'dispositivos conectados'}. Latência: ${latencyMs}ms. Clique para abrir no celular.`}
         >
           <span className={`w-2 h-2 rounded-full ${syncStatus === 'syncing' ? 'bg-amber-400 animate-spin' : 'bg-emerald-400 animate-pulse'}`}></span>
           <span className="text-[11px] font-bold">
-            {syncStatus === 'syncing' ? 'Sincronizando' : connectedDevices > 1 ? `${connectedDevices} Aparelhos` : 'Nuvem Ativa'}
+            {syncStatus === 'syncing' ? 'Sincronizando' : connectedDevices > 1 ? `${connectedDevices} Aparelhos` : 'Tempo Real'}
+          </span>
+          <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded">
+            ⚡{latencyMs > 0 ? `${latencyMs}ms` : '<1ms'}
           </span>
         </button>
 

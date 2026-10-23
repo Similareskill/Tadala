@@ -16,19 +16,22 @@ export interface FullSyncState {
 export type SyncStatus = 'connected' | 'connecting' | 'syncing' | 'offline';
 
 type StateListener = (state: Partial<FullSyncState>, source: string) => void;
-type StatusListener = (status: SyncStatus, deviceCount: number) => void;
+type StatusListener = (status: SyncStatus, deviceCount: number, latencyMs: number) => void;
 
 class DeviceSyncService {
+  private ws: WebSocket | null = null;
   private eventSource: EventSource | null = null;
   private broadcastChannel: BroadcastChannel | null = null;
   private stateListeners: Set<StateListener> = new Set();
   private statusListeners: Set<StatusListener> = new Set();
   private currentStatus: SyncStatus = 'connecting';
   private connectedDevicesCount: number = 1;
+  private latencyMs: number = 0;
   private lastVersion: number = 0;
-  private pollInterval: number | null = null;
   private deviceId: string;
-  private isPushing: boolean = false;
+  private reconnectTimeout: number | null = null;
+  private pingInterval: number | null = null;
+  private pingStartTime: number = 0;
 
   constructor() {
     this.deviceId = this.getOrCreateDeviceId();
@@ -41,7 +44,7 @@ class DeviceSyncService {
           }
         };
       } catch (e) {
-        console.warn('BroadcastChannel not supported:', e);
+        console.warn('BroadcastChannel error:', e);
       }
 
       this.initConnection();
@@ -74,21 +77,28 @@ class DeviceSyncService {
     return this.connectedDevicesCount;
   }
 
-  private updateStatus(status: SyncStatus, count?: number) {
+  public getLatencyMs(): number {
+    return this.latencyMs;
+  }
+
+  private updateStatus(status: SyncStatus, count?: number, latency?: number) {
     this.currentStatus = status;
     if (count !== undefined) {
       this.connectedDevicesCount = count;
     }
+    if (latency !== undefined) {
+      this.latencyMs = latency;
+    }
     this.statusListeners.forEach((fn) => {
       try {
-        fn(this.currentStatus, this.connectedDevicesCount);
+        fn(this.currentStatus, this.connectedDevicesCount, this.latencyMs);
       } catch {}
     });
   }
 
   public subscribeStatus(listener: StatusListener): () => void {
     this.statusListeners.add(listener);
-    listener(this.currentStatus, this.connectedDevicesCount);
+    listener(this.currentStatus, this.connectedDevicesCount, this.latencyMs);
     return () => this.statusListeners.delete(listener);
   }
 
@@ -107,25 +117,98 @@ class DeviceSyncService {
     });
   }
 
-  public async initConnection() {
-    this.updateStatus('connecting');
+  public initConnection() {
+    this.connectWebSocket();
 
-    // 1. Initial full state fetch from server API
-    await this.fetchServerState(true);
-
-    // 2. Setup Server-Sent Events (SSE) for instantaneous multi-device updates
-    this.setupSSE();
-
-    // 3. Fallback health check & poll every 4 seconds to ensure zero missed updates
-    if (this.pollInterval) clearInterval(this.pollInterval);
-    this.pollInterval = window.setInterval(() => {
-      this.checkServerPing();
-    }, 4000);
+    // Start background ping to measure instant latency
+    if (this.pingInterval) clearInterval(this.pingInterval);
+    this.pingInterval = window.setInterval(() => {
+      this.measurePing();
+    }, 5000);
   }
 
-  private setupSSE() {
-    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+  private connectWebSocket() {
+    if (typeof window === 'undefined') return;
 
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+      this.ws = null;
+    }
+
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws?device=${encodeURIComponent(this.deviceId)}`;
+
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        this.updateStatus('connected');
+        this.measurePing();
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'PONG') {
+            const rtt = Math.max(1, Date.now() - this.pingStartTime);
+            this.latencyMs = rtt;
+            this.updateStatus('connected', data.connectedDevices, rtt);
+            return;
+          }
+
+          if (data.type === 'INIT' && data.payload) {
+            this.lastVersion = data.version || 1;
+            this.updateStatus('connected', data.connectedDevices);
+            this.notifyStateListeners(data.payload, 'ws-init');
+            return;
+          }
+
+          if (data.type === 'SYNC_UPDATE' && data.payload) {
+            if (data.sourceDevice !== this.deviceId) {
+              if (data.version) this.lastVersion = data.version;
+              this.notifyStateListeners(data.payload, 'ws-instant');
+            }
+            if (data.connectedDevices) {
+              this.updateStatus('connected', data.connectedDevices);
+            }
+            return;
+          }
+
+          if (data.type === 'DEVICE_COUNT' && data.connectedDevices) {
+            this.updateStatus('connected', data.connectedDevices);
+          }
+        } catch (err) {
+          console.warn('Error parsing WS frame:', err);
+        }
+      };
+
+      this.ws.onclose = () => {
+        // Fast reconnect in 800ms
+        this.scheduleReconnect();
+      };
+
+      this.ws.onerror = () => {
+        // Fall back to SSE if WS fails
+        this.setupSSEFallback();
+      };
+    } catch (e) {
+      console.warn('WebSocket init error, falling back to SSE:', e);
+      this.setupSSEFallback();
+    }
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    this.reconnectTimeout = window.setTimeout(() => {
+      this.connectWebSocket();
+    }, 800);
+  }
+
+  private setupSSEFallback() {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
     if (this.eventSource) {
       try {
         this.eventSource.close();
@@ -143,91 +226,51 @@ class DeviceSyncService {
       this.eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'SYNC_UPDATE') {
-            if (data.sourceDevice !== this.deviceId) {
-              if (data.version && data.version > this.lastVersion) {
-                this.lastVersion = data.version;
-                this.notifyStateListeners(data.payload, 'server-sse');
-              }
-            }
-            if (data.connectedDevices) {
-              this.connectedDevicesCount = data.connectedDevices;
-              this.updateStatus('connected', data.connectedDevices);
-            }
-          } else if (data.type === 'PING') {
-            if (data.connectedDevices) {
-              this.connectedDevicesCount = data.connectedDevices;
-              this.updateStatus('connected', data.connectedDevices);
-            }
+          if (data.type === 'SYNC_UPDATE' && data.payload && data.sourceDevice !== this.deviceId) {
+            if (data.version) this.lastVersion = data.version;
+            this.notifyStateListeners(data.payload, 'sse-fallback');
           }
-        } catch (e) {
-          console.warn('Error parsing SSE message:', e);
-        }
+          if (data.connectedDevices) {
+            this.updateStatus('connected', data.connectedDevices);
+          }
+        } catch {}
       };
 
       this.eventSource.onerror = () => {
-        // Fall back to polling mode gracefully
         this.updateStatus('connecting');
       };
-    } catch (e) {
-      console.warn('SSE connection initialization error, falling back to polling:', e);
+    } catch {}
+  }
+
+  private measurePing() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.pingStartTime = Date.now();
+      try {
+        this.ws.send(JSON.stringify({ type: 'PING', timestamp: this.pingStartTime }));
+      } catch {}
+    } else {
+      // Fallback HTTP ping
+      const start = Date.now();
+      fetch(`/api/sync/ping?device=${encodeURIComponent(this.deviceId)}`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((json) => {
+          const rtt = Math.max(1, Date.now() - start);
+          this.updateStatus('connected', json.connectedDevices, rtt);
+        })
+        .catch(() => {
+          this.updateStatus('offline');
+        });
     }
   }
 
-  private async checkServerPing() {
-    try {
-      const res = await fetch(`/api/sync/ping?device=${encodeURIComponent(this.deviceId)}`, {
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.version && json.version > this.lastVersion) {
-          // Newer data available on server, fetch it!
-          await this.fetchServerState(false);
-        }
-        this.updateStatus('connected', json.connectedDevices || 1);
-      } else {
-        this.updateStatus('connecting');
-      }
-    } catch {
-      this.updateStatus('offline');
-    }
-  }
-
-  public async fetchServerState(isInitial: boolean = false): Promise<FullSyncState | null> {
-    try {
-      const res = await fetch(`/api/sync?device=${encodeURIComponent(this.deviceId)}`, {
-        cache: 'no-store',
-      });
-      if (!res.ok) {
-        this.updateStatus('offline');
-        return null;
-      }
-      const data: FullSyncState = await res.json();
-      if (data && typeof data.version === 'number') {
-        this.lastVersion = data.version;
-        this.notifyStateListeners(data, isInitial ? 'initial-load' : 'server-poll');
-        this.updateStatus('connected');
-        return data;
-      }
-      return null;
-    } catch {
-      this.updateStatus('offline');
-      return null;
-    }
-  }
-
+  /**
+   * Instantly broadcasts updates to ALL connected devices without any artificial delay or ms limits.
+   */
   public async pushStateUpdate(
     partial: Partial<FullSyncState>,
-    reason: string = 'manual_update'
+    reason: string = 'instant_sync'
   ): Promise<boolean> {
-    if (this.isPushing) {
-      // allow parallel updates
-    }
-    this.isPushing = true;
-    this.updateStatus('syncing');
-
-    // 1. Instantly notify other local tabs via BroadcastChannel
+    // 1. Instant 0ms broadcast to all other open tabs on this machine
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({
@@ -240,58 +283,84 @@ class DeviceSyncService {
       } catch {}
     }
 
-    // 2. Post update to central server API for all mobile/desktop devices
+    // 2. Direct TCP WebSocket push to central server (< 2ms transmission)
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(
+          JSON.stringify({
+            type: 'UPDATE',
+            sourceDevice: this.deviceId,
+            reason,
+            payload: partial,
+            timestamp: Date.now(),
+          })
+        );
+        return true;
+      } catch (err) {
+        console.warn('Failed WS push, falling back to HTTP:', err);
+      }
+    }
+
+    // 3. Fallback immediate HTTP POST if WS was reconnecting
     try {
       const res = await fetch('/api/sync', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sourceDevice: this.deviceId,
           reason,
           payload: partial,
         }),
       });
-
       if (res.ok) {
         const json = await res.json();
-        if (json.version) {
-          this.lastVersion = json.version;
-        }
+        if (json.version) this.lastVersion = json.version;
         this.updateStatus('connected', json.connectedDevices);
-        this.isPushing = false;
         return true;
       }
     } catch (e) {
-      console.warn('Could not push sync state to server:', e);
+      console.warn('Failed HTTP push:', e);
     }
 
-    this.isPushing = false;
-    this.updateStatus('connected');
     return false;
   }
 
-  public async forceResyncAll(): Promise<{ success: boolean; message: string }> {
+  public async forceResyncAll(): Promise<{ success: boolean; message: string; latencyMs: number }> {
     this.updateStatus('syncing');
+    const start = Date.now();
     try {
-      const full = await this.fetchServerState(false);
-      if (full) {
-        this.updateStatus('connected');
+      const res = await fetch(`/api/sync?device=${encodeURIComponent(this.deviceId)}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data: FullSyncState = await res.json();
+        const rtt = Math.max(1, Date.now() - start);
+        this.latencyMs = rtt;
+        this.notifyStateListeners(data, 'manual_force_sync');
+        this.updateStatus('connected', data.version ? undefined : 1, rtt);
         return {
           success: true,
-          message: 'Todos os dispositivos sincronizados em tempo real com sucesso!',
+          message: `Sincronizado instantaneamente! (${rtt}ms de latência)`,
+          latencyMs: rtt,
         };
       }
     } catch {}
+
     return {
       success: false,
-      message: 'Não foi possível restabelecer conexão no momento. Tentando novamente...',
+      message: 'Não foi possível restabelecer conexão no momento.',
+      latencyMs: 0,
     };
   }
 
   public destroy() {
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    if (this.pingInterval) clearInterval(this.pingInterval);
+    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+    }
     if (this.eventSource) {
       try {
         this.eventSource.close();

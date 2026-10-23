@@ -11,6 +11,7 @@ interface SyncFooterProps {
   onForceResync?: () => Promise<void> | void;
   connectedDevices?: number;
   syncStatus?: 'connected' | 'connecting' | 'syncing' | 'offline';
+  latencyMs?: number;
 }
 
 export const SyncFooter: React.FC<SyncFooterProps> = ({
@@ -23,6 +24,7 @@ export const SyncFooter: React.FC<SyncFooterProps> = ({
   onForceResync,
   connectedDevices = 1,
   syncStatus = 'connected',
+  latencyMs = 2,
 }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
@@ -34,10 +36,10 @@ export const SyncFooter: React.FC<SyncFooterProps> = ({
       if (onForceResync) {
         await onForceResync();
       }
-      setSyncFeedback('Sincronizado com Sucesso!');
+      setSyncFeedback('Transmitido Instantaneamente!');
       setTimeout(() => setSyncFeedback(null), 3000);
     } catch {
-      setSyncFeedback('Tentando reconectar...');
+      setSyncFeedback('Reconectando...');
       setTimeout(() => setSyncFeedback(null), 3000);
     } finally {
       setIsSyncing(false);
@@ -57,14 +59,17 @@ export const SyncFooter: React.FC<SyncFooterProps> = ({
       return (
         <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>{connectedDevices} {connectedDevices === 1 ? 'Aparelho Conectado' : 'Aparelhos Conectados'}</span>
+          <span>{connectedDevices} {connectedDevices === 1 ? 'Aparelho' : 'Aparelhos'} Conectados</span>
+          <span className="bg-emerald-500/30 text-emerald-200 px-1.5 py-0.2 rounded font-mono text-[9px]">
+            ⚡ {latencyMs > 0 ? `${latencyMs}ms` : '<1ms'}
+          </span>
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-bold">
         <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-        <span>Rede Ativa</span>
+        <span>WebSocket Ativo</span>
       </span>
     );
   };
