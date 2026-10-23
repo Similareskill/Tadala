@@ -7,7 +7,6 @@ import resquicioImg from './assets/images/resquicio_relic_icon_1790391724781.jpg
 import laminaDouradaImg from './assets/images/lamina_dourada_icon_1790391871978.jpg';
 import grimorioImg from './assets/images/grimorio_verde_icon_1790391884226.jpg';
 import runaCelesteImg from './assets/images/runa_celeste_icon_1790392045461.jpg';
-import nightCrowsBg from './assets/images/night_crows_wallpaper_1792563471663.jpg';
 import { formatRelativeTime, playHapticSound } from './utils/helpers';
 import { Sidebar, TabType } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -22,6 +21,8 @@ import { statusService } from './services/statusService';
 import { adminAuthService } from './services/adminAuth';
 import { activityLogService } from './services/activityLogService';
 import { User as FirebaseUser } from 'firebase/auth';
+import { useTheme } from './context/ThemeContext';
+import { deviceSyncService, SyncStatus, PeerInfo } from './services/deviceSyncService';
 
 // Lazy-load secondary views and modals to minimize initial bundle size and maximize load speed
 const HistoryView = lazy(() => import('./components/HistoryView').then((m) => ({ default: m.HistoryView })));
@@ -47,6 +48,8 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
+  const { backgroundStyle, applyThemePreset, saveBackgroundToCurrentTheme, activeThemeId } = useTheme();
+
   // Navigation tab state
   const [currentTab, setCurrentTab] = useState<TabType>('lista');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -62,6 +65,10 @@ export default function App() {
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => deviceSyncService.getStatus());
+  const [connectedDevices, setConnectedDevices] = useState<number>(() => deviceSyncService.getConnectedDevicesCount());
+  const [latencyMs, setLatencyMs] = useState<number>(() => deviceSyncService.getLatencyMs());
+  const [peers, setPeers] = useState<PeerInfo[]>(() => deviceSyncService.getConnectedPeers());
 
   // Admin auth state (Admin-only modification control)
   const [isAdmin, setIsAdmin] = useState<boolean>(() => adminAuthService.isAdmin());
@@ -229,20 +236,64 @@ export default function App() {
     return false;
   };
 
-  // Real-time synchronization with Firestore (multi-device)
+  // Real-time synchronization with Central Multi-Device Engine & Firestore
   useEffect(() => {
-    // Seed initial items if Firestore collection is empty
-    itemsService.seedInitialIfEmpty(INITIAL_ITEMS);
+    // 1. Subscribe to Live Multi-Device Sync Engine (WebSocket 0ms)
+    const unsubStatus = deviceSyncService.subscribeStatus((status, count, latency, peerList) => {
+      setSyncStatus(status);
+      setConnectedDevices(count);
+      if (latency !== undefined) setLatencyMs(latency);
+      if (peerList) setPeers(peerList);
+    });
 
+    const unsubDeviceData = deviceSyncService.subscribe((partial, source) => {
+      if (partial.items !== undefined && Array.isArray(partial.items)) {
+        if ((source === 'ws-init' || source === 'global-cached-snapshot') && partial.items.length === 0) {
+          // If server or relay was freshly initialized or empty, seed from current client items
+          setItems((current) => {
+            if (current && current.length > 0) {
+              deviceSyncService.pushStateUpdate({ items: current }, 'client_seed').catch(() => {});
+            }
+            return current;
+          });
+        } else {
+          setItems(partial.items);
+        }
+      }
+      if (partial.settings && typeof partial.settings === 'object') {
+        setSettings((prev) => ({ ...prev, ...partial.settings }));
+      }
+      if (partial.history !== undefined && Array.isArray(partial.history)) {
+        setHistory(partial.history);
+      }
+      if (partial.bossEvents !== undefined && Array.isArray(partial.bossEvents)) {
+        setBossEvents(partial.bossEvents);
+      }
+      if (partial.checkins !== undefined && Array.isArray(partial.checkins)) {
+        setCheckins(partial.checkins);
+      }
+      if (partial.memberStatuses !== undefined && Array.isArray(partial.memberStatuses)) {
+        setMemberStatuses(partial.memberStatuses);
+      }
+    });
+
+    // 2. Seed initial items if Firestore collection is empty
+    itemsService.seedInitialIfEmpty(INITIAL_ITEMS).catch(() => {});
+
+    // 3. Firestore Listeners
     const unsubItems = itemsService.subscribe(
       (firestoreItems) => {
-        setItems((prevLocal) => {
-          const selectedMap = new Set(prevLocal.filter((i) => i.selected).map((i) => i.id));
-          return firestoreItems.map((fi) => ({
-            ...fi,
-            selected: selectedMap.has(fi.id),
-          }));
-        });
+        if (firestoreItems && firestoreItems.length > 0) {
+          setItems((prevLocal) => {
+            const selectedMap = new Set(prevLocal.filter((i) => i.selected).map((i) => i.id));
+            const merged = firestoreItems.map((fi) => ({
+              ...fi,
+              selected: selectedMap.has(fi.id),
+            }));
+            deviceSyncService.pushStateUpdate({ items: merged }, 'firestore_sync').catch(() => {});
+            return merged;
+          });
+        }
       },
       (err) => {
         console.warn('Real-time items sync notice:', err);
@@ -250,14 +301,21 @@ export default function App() {
     );
 
     const unsubSettings = settingsService.subscribe((remoteSettings) => {
-      setSettings(remoteSettings);
+      if (remoteSettings && remoteSettings.listName) {
+        setSettings(remoteSettings);
+        deviceSyncService.pushStateUpdate({ settings: remoteSettings }, 'firestore_settings').catch(() => {});
+      }
     });
 
     const unsubHistory = historyService.subscribe((remoteHistory) => {
-      setHistory(remoteHistory);
+      if (remoteHistory && remoteHistory.length > 0) {
+        setHistory(remoteHistory);
+      }
     });
 
     return () => {
+      unsubStatus();
+      unsubDeviceData();
       unsubItems();
       unsubSettings();
       unsubHistory();
@@ -326,43 +384,62 @@ export default function App() {
 
   // Last updated relative time (from latest item update)
   const lastUpdatedText = useMemo(() => {
-    if (items.length === 0) return 'Atualizado agora';
-    const latest = items.reduce((latestTime, item) => {
-      const t = new Date(item.updatedAt || item.createdAt).getTime();
-      return Math.max(latestTime, t);
-    }, 0);
-    return `Atualizado ${formatRelativeTime(new Date(latest).toISOString())}`;
+    if (!items || items.length === 0) return 'Atualizado agora';
+    let latest = 0;
+    for (const item of items) {
+      if (!item) continue;
+      const rawDate = item.updatedAt || item.createdAt;
+      if (rawDate) {
+        const timeVal = new Date(rawDate).getTime();
+        if (!isNaN(timeVal) && timeVal > latest) {
+          latest = timeVal;
+        }
+      }
+    }
+    if (latest === 0) return 'Atualizado agora';
+    try {
+      return `Atualizado ${formatRelativeTime(new Date(latest).toISOString())}`;
+    } catch {
+      return 'Atualizado agora';
+    }
   }, [items]);
 
   // Filtered Items for List View
   const filteredItems = useMemo(() => {
-    const sorted = [...items].sort((a, b) => {
+    const validItems = items.filter(
+      (item): item is ShoppingItem => Boolean(item && typeof item === 'object' && item.id && item.name)
+    );
+    const sorted = [...validItems].sort((a, b) => {
       if (a.order !== undefined && b.order !== undefined) {
         return a.order - b.order;
       }
       if (a.order !== undefined) return -1;
       if (b.order !== undefined) return 1;
-      const timeA = new Date(b.createdAt || 0).getTime();
-      const timeB = new Date(a.createdAt || 0).getTime();
+      const timeA = new Date(b.createdAt || 0).getTime() || 0;
+      const timeB = new Date(a.createdAt || 0).getTime() || 0;
       return timeA - timeB;
     });
 
     return sorted.filter((item) => {
+      const name = item.name || '';
+      const category = item.category || 'Comum';
+      const brand = item.brandOrPreference || '';
+
       // Global search filter
       if (globalSearch.trim()) {
         const query = globalSearch.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(query);
-        const matchCat = item.category.toLowerCase().includes(query);
-        const matchBrand = (item.brandOrPreference || '').toLowerCase().includes(query);
+        const matchName = name.toLowerCase().includes(query);
+        const matchCat = category.toLowerCase().includes(query);
+        const matchBrand = brand.toLowerCase().includes(query);
         if (!matchName && !matchCat && !matchBrand) return false;
       }
 
       // Local search filter
       if (filterSearch.trim()) {
         const query = filterSearch.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(query);
-        const matchCat = item.category.toLowerCase().includes(query);
-        const matchBrand = (item.brandOrPreference || '').toLowerCase().includes(query);
+        const matchName = name.toLowerCase().includes(query);
+        const matchCat = category.toLowerCase().includes(query);
+        const matchBrand = brand.toLowerCase().includes(query);
         if (!matchName && !matchCat && !matchBrand) return false;
       }
 
@@ -389,8 +466,8 @@ export default function App() {
   const handleToggleStatus = (id: string) => {
     if (!requireAdmin('Apenas o Administrador pode marcar itens como coletados ou pendentes.')) return;
     let updatedItem: ShoppingItem | null = null;
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const next = prev.map((item) => {
         if (item.id === id) {
           const nextStatus = item.status === 'pendente' ? 'no_carrinho' : 'pendente';
           updatedItem = {
@@ -402,8 +479,10 @@ export default function App() {
           return updatedItem;
         }
         return item;
-      })
-    );
+      });
+      deviceSyncService.pushStateUpdate({ items: next }, 'item_toggle_status').catch(() => {});
+      return next;
+    });
     if (updatedItem) {
       itemsService.saveItem(updatedItem).catch((err) => console.warn('Sync error:', err));
     }
@@ -413,15 +492,17 @@ export default function App() {
     if (!requireAdmin('Apenas o Administrador pode alterar a quantidade dos itens.')) return;
     if (newQty < 1) return;
     let updatedItem: ShoppingItem | null = null;
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const next = prev.map((item) => {
         if (item.id === id) {
           updatedItem = { ...item, quantity: newQty, updatedAt: new Date().toISOString() };
           return updatedItem;
         }
         return item;
-      })
-    );
+      });
+      deviceSyncService.pushStateUpdate({ items: next }, 'item_update_qty').catch(() => {});
+      return next;
+    });
     if (updatedItem) {
       itemsService.saveItem(updatedItem).catch((err) => console.warn('Sync error:', err));
     }
@@ -431,7 +512,11 @@ export default function App() {
     if (!requireAdmin('Apenas o Administrador pode remover itens da lista.')) return;
     const itemToDelete = items.find((i) => i.id === id);
     // Immediate optimistic update
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    setItems((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      deviceSyncService.pushStateUpdate({ items: next }, 'item_delete').catch(() => {});
+      return next;
+    });
     showToast(`"${itemToDelete?.name || 'Item'}" removido`);
     activityLogService.log({
       type: 'item_delete',
@@ -470,8 +555,8 @@ export default function App() {
     if (!requireAdmin('Apenas o Administrador pode mover itens selecionados para o carrinho.')) return;
     playHapticSound('toggle');
     const updatedItems: ShoppingItem[] = [];
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const next = prev.map((item) => {
         if (item.selected) {
           const upd: ShoppingItem = {
             ...item,
@@ -482,8 +567,10 @@ export default function App() {
           return upd;
         }
         return item;
-      })
-    );
+      });
+      deviceSyncService.pushStateUpdate({ items: next }, 'items_collected').catch(() => {});
+      return next;
+    });
     showToast('Itens marcados no carrinho');
     for (const item of updatedItems) {
       itemsService.saveItem(item).catch((err) => console.warn('Sync error:', err));
@@ -498,7 +585,11 @@ export default function App() {
     if (toDeleteCount === 0) return;
 
     // Optimistic local deletion
-    setItems((prev) => prev.filter((item) => !item.selected));
+    setItems((prev) => {
+      const next = prev.filter((item) => !item.selected);
+      deviceSyncService.pushStateUpdate({ items: next }, 'items_delete_selected').catch(() => {});
+      return next;
+    });
     showToast(`${toDeleteCount} itens excluídos`);
 
     // Delete in Firestore
@@ -542,7 +633,11 @@ export default function App() {
       createdBy: user?.uid,
       createdByName: user?.displayName || user?.email || undefined,
     };
-    setItems((prev) => [newItem, ...prev]);
+    setItems((prev) => {
+      const next = [newItem, ...prev];
+      deviceSyncService.pushStateUpdate({ items: next }, 'item_quick_add').catch(() => {});
+      return next;
+    });
     showToast(`"${name}" adicionado à lista`);
     activityLogService.log({
       type: 'item_add',
@@ -569,9 +664,11 @@ export default function App() {
         ...itemData,
         updatedAt: new Date().toISOString(),
       };
-      setItems((prev) =>
-        prev.map((i) => (i.id === itemToEdit.id ? updated : i))
-      );
+      setItems((prev) => {
+        const next = prev.map((i) => (i.id === itemToEdit.id ? updated : i));
+        deviceSyncService.pushStateUpdate({ items: next }, 'item_edit_modal').catch(() => {});
+        return next;
+      });
       showToast(`"${itemData.name}" atualizado`);
       activityLogService.log({
         type: 'item_update',
@@ -608,7 +705,11 @@ export default function App() {
         createdBy: user?.uid,
         createdByName: user?.displayName || user?.email || undefined,
       };
-      setItems((prev) => [newItem, ...prev]);
+      setItems((prev) => {
+        const next = [newItem, ...prev];
+        deviceSyncService.pushStateUpdate({ items: next }, 'item_create_modal').catch(() => {});
+        return next;
+      });
       showToast(`"${newItem.name}" adicionado com foto associada`);
       activityLogService.log({
         type: 'item_add',
@@ -629,15 +730,17 @@ export default function App() {
   const handleSaveNotes = async (id: string, notes: string) => {
     if (!requireAdmin('Apenas o Administrador pode salvar observações no item.')) return;
     let updatedItem: ShoppingItem | null = null;
-    setItems((prev) =>
-      prev.map((i) => {
+    setItems((prev) => {
+      const next = prev.map((i) => {
         if (i.id === id) {
           updatedItem = { ...i, notes, updatedAt: new Date().toISOString() };
           return updatedItem;
         }
         return i;
-      })
-    );
+      });
+      deviceSyncService.pushStateUpdate({ items: next }, 'item_notes').catch(() => {});
+      return next;
+    });
     showToast('Observação salva');
     if (updatedItem) {
       try {
@@ -662,15 +765,17 @@ export default function App() {
       return;
     }
     let updatedItem: ShoppingItem | null = null;
-    setItems((prev) =>
-      prev.map((i) => {
+    setItems((prev) => {
+      const next = prev.map((i) => {
         if (i.id === id) {
           updatedItem = { ...i, ...patch, updatedAt: new Date().toISOString() };
           return updatedItem;
         }
         return i;
-      })
-    );
+      });
+      deviceSyncService.pushStateUpdate({ items: next }, 'item_update').catch(() => {});
+      return next;
+    });
     if (patch.name) {
       showToast(`Nome alterado para "${patch.name}"`);
     }
@@ -704,6 +809,7 @@ export default function App() {
     const normalized = updated.map((it, idx) => ({ ...it, order: idx }));
 
     setItems(normalized);
+    deviceSyncService.pushStateUpdate({ items: normalized }, 'items_swap').catch(() => {});
     showToast(`Marcadores trocados: "${itemA.name}" ⇄ "${itemB.name}"`);
 
     try {
@@ -734,7 +840,11 @@ export default function App() {
     if (collectedCount === 0) return;
     playHapticSound('delete');
     const collectedIds = cartItems.map((i) => i.id);
-    setItems((prev) => prev.filter((i) => i.status !== 'no_carrinho'));
+    setItems((prev) => {
+      const next = prev.filter((i) => i.status !== 'no_carrinho');
+      deviceSyncService.pushStateUpdate({ items: next }, 'clear_collected').catch(() => {});
+      return next;
+    });
     showToast(`${collectedCount} itens coletados removidos da lista`);
     try {
       await itemsService.deleteMultipleItems(collectedIds);
@@ -861,9 +971,10 @@ export default function App() {
   // Force re-synchronization across all devices
   const handleForceResync = async () => {
     try {
-      const ok = await reconnectFirestore();
-      if (ok) {
-        showToast('Dispositivos sincronizados com sucesso com o banco de dados!');
+      const res = await deviceSyncService.forceResyncAll();
+      await reconnectFirestore().catch(() => {});
+      if (res.success) {
+        showToast(res.message);
       } else {
         showToast('Conexão restabelecida. Sincronizando dados...');
       }
@@ -880,6 +991,11 @@ export default function App() {
     setItems(INITIAL_ITEMS);
     setSettings(INITIAL_SETTINGS);
     setHistory(INITIAL_HISTORY);
+    deviceSyncService.pushStateUpdate({
+      items: INITIAL_ITEMS,
+      settings: INITIAL_SETTINGS,
+      history: INITIAL_HISTORY,
+    }, 'reset_demo_data').catch(() => {});
     showToast('Dados restaurados com base no ecrã de demonstração');
     activityLogService.log({
       type: 'item_restore',
@@ -902,6 +1018,7 @@ export default function App() {
     if (!requireAdmin('Apenas o Administrador pode apagar todos os itens da lista.')) return;
     playHapticSound('delete');
     setItems([]);
+    deviceSyncService.pushStateUpdate({ items: [] }, 'clear_all_items').catch(() => {});
     showToast('Todos os itens foram removidos');
     activityLogService.log({
       type: 'item_clear',
@@ -921,6 +1038,7 @@ export default function App() {
   const handleUpdateSettings = async (newSettings: AppSettings) => {
     if (!requireAdmin('Apenas o Administrador pode modificar as configurações.')) return;
     setSettings(newSettings);
+    deviceSyncService.pushStateUpdate({ settings: newSettings }, 'update_settings').catch(() => {});
     showToast('Configurações atualizadas com sucesso!');
     activityLogService.log({
       type: 'settings_update',
@@ -951,12 +1069,7 @@ export default function App() {
   return (
     <div
       className="min-h-screen text-[#f1f5f9] flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200 relative"
-      style={{
-        backgroundImage: `linear-gradient(to bottom, rgba(5, 7, 12, 0.80) 0%, rgba(8, 11, 18, 0.88) 45%, rgba(5, 7, 12, 0.95) 100%), url(${nightCrowsBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center top',
-        backgroundAttachment: 'fixed',
-      }}
+      style={backgroundStyle}
     >
       {/* Toast Alert */}
       {toastMessage && (
@@ -1057,6 +1170,9 @@ export default function App() {
               setIsAdminModalOpen(true);
             }}
             onAdminLogout={handleAdminLogout}
+            connectedDevices={connectedDevices}
+            syncStatus={syncStatus}
+            latencyMs={latencyMs}
           />
 
           {/* Subheader / Main Content Viewport */}
@@ -1265,6 +1381,9 @@ export default function App() {
                   collectedCount={cartItems.length}
                   onOpenShareModal={() => setIsShareModalOpen(true)}
                   onForceResync={handleForceResync}
+                  connectedDevices={connectedDevices}
+                  syncStatus={syncStatus}
+                  latencyMs={latencyMs}
                 />
               </div>
             )}
@@ -1460,6 +1579,11 @@ export default function App() {
               setIsShareModalOpen(false);
               setIsAuthModalOpen(true);
             }}
+            connectedDevices={connectedDevices}
+            syncStatus={syncStatus}
+            latencyMs={latencyMs}
+            peers={peers}
+            onForceResync={handleForceResync}
           />
         </Suspense>
       )}

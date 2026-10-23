@@ -1,0 +1,23 @@
+{
+  "items": [],
+  "settings": {
+    "householdName": "Tadala Fila",
+    "listName": "Lista de Craft",
+    "currencySymbol": "R$",
+    "soundFeedback": true,
+    "categories": [
+      "Comum",
+      "Incomum",
+      "Raro",
+      "Epic",
+      "Lendario"
+    ]
+  },
+  "history": [],
+  "bossEvents": [],
+  "checkins": [],
+  "memberStatuses": [],
+  "activityLogs": [],
+  "version": 8,
+  "lastUpdated": "2026-10-23T03:39:13.918Z"
+}

@@ -38,6 +38,14 @@ export interface AppSettings {
   autoSync: boolean;
   soundFeedback: boolean;
   categories: string[];
+  themePresetId?: string;
+  themeMode?: 'light' | 'dark';
+  backgroundImageUrl?: string;
+  backgroundType?: 'image' | 'gradient' | 'solid' | 'none';
+  backgroundOverlay?: string;
+  backgroundOpacity?: number;
+  textColor?: string;
+  customThemes?: any[];
 }
 
 export interface AdminAccount {

@@ -30,6 +30,9 @@ interface TopHeaderProps {
   adminUser?: AdminAccount | null;
   onOpenAdminLogin?: () => void;
   onAdminLogout?: () => void;
+  connectedDevices?: number;
+  syncStatus?: 'connected' | 'connecting' | 'syncing' | 'offline';
+  latencyMs?: number;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -46,6 +49,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   adminUser,
   onOpenAdminLogin,
   onAdminLogout,
+  connectedDevices = 1,
+  syncStatus = 'connected',
+  latencyMs = 2,
 }) => {
   const userInitials = user?.displayName
     ? user.displayName.slice(0, 2).toUpperCase()
@@ -152,16 +158,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <span className="hidden sm:inline font-cinzel text-xs tracking-wider">Novo Item</span>
         </button>
 
-        {/* Sync Status Badge */}
-        <button
-          type="button"
-          onClick={onOpenShareModal}
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#0d141e] border border-emerald-600/40 text-emerald-300 text-xs font-semibold hover:bg-[#121c2c] transition-colors cursor-pointer"
-          title="Dispositivos sincronizados em tempo real com o banco de dados central. Clique para abrir em outro celular ou tablet."
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="text-[11px] font-bold">Nuvem Ativa</span>
-        </button>
+
 
         {/* Dark / Light Theme Toggle Button */}
         <ThemeToggleButton size="md" />
