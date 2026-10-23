@@ -13,10 +13,18 @@ export interface FullSyncState {
   sourceDevice?: string;
 }
 
+export interface PeerInfo {
+  id: string;
+  name: string;
+  network: string;
+  region: string;
+  lastSeen: number;
+}
+
 export type SyncStatus = 'connected' | 'connecting' | 'syncing' | 'offline';
 
 type StateListener = (state: Partial<FullSyncState>, source: string) => void;
-type StatusListener = (status: SyncStatus, deviceCount: number, latencyMs: number) => void;
+type StatusListener = (status: SyncStatus, deviceCount: number, latencyMs: number, peers?: PeerInfo[]) => void;
 
 class DeviceSyncService {
   // Local transports
@@ -43,8 +51,8 @@ class DeviceSyncService {
   private heartbeatInterval: number | null = null;
   private pingStartTime: number = 0;
 
-  // Active peer tracking across networks
-  private activePeers: Map<string, number> = new Map();
+  // Active peer tracking across networks and countries
+  private activePeers: Map<string, PeerInfo> = new Map();
   private latestCachedState: Partial<FullSyncState> | null = null;
 
   constructor() {
@@ -64,6 +72,17 @@ class DeviceSyncService {
       } catch (e) {
         console.warn('BroadcastChannel error:', e);
       }
+
+      // Reconnect and resync immediately when mobile screen wakes up or network reconnects
+      window.addEventListener('online', () => {
+        this.initConnection();
+        this.forceResyncAll();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.forceResyncAll();
+        }
+      });
 
       this.initConnection();
     }
@@ -316,9 +335,9 @@ class DeviceSyncService {
 
             if (!msgObj || typeof msgObj !== 'object') return;
 
-            // Handle peer heartbeat to track devices across all networks
+            // Handle peer heartbeat to track devices across all networks and countries
             if (msgObj.type === 'PEER_PING' && msgObj.deviceId) {
-              this.recordPeerActivity(msgObj.deviceId);
+              this.recordPeerActivity(msgObj.deviceId, msgObj.name, msgObj.network, msgObj.region);
               return;
             }
 
@@ -427,35 +446,93 @@ class DeviceSyncService {
     this.notifyStateListeners(partial, source);
   }
 
-  private recordPeerActivity(peerId: string) {
-    if (!peerId || peerId === this.deviceId) return;
-    this.activePeers.set(peerId, Date.now());
-    this.connectedDevicesCount = Math.max(1, this.activePeers.size + 1);
+  public detectRegion(): string {
+    if (typeof Intl === 'undefined') return '🌐 Global';
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (
+        tz.includes('Sao_Paulo') ||
+        tz.includes('America/Belem') ||
+        tz.includes('America/Fortaleza') ||
+        tz.includes('America/Recife') ||
+        tz.includes('America/Cuiaba') ||
+        tz.includes('America/Manaus')
+      ) {
+        return '🇧🇷 Brasil';
+      }
+      if (tz.includes('Lisbon') || tz.includes('Atlantic/Madeira') || tz.includes('Atlantic/Azores')) {
+        return '🇵🇹 Portugal';
+      }
+      if (tz.includes('America/')) return '🌎 Américas';
+      if (tz.includes('Europe/')) return '🌍 Europa';
+      if (tz.includes('Asia/')) return '🌏 Ásia';
+      return '🌐 Global';
+    } catch {
+      return '🌐 Global';
+    }
+  }
+
+  public detectNetworkType(): string {
+    if (typeof navigator === 'undefined') return 'Rede';
+    const conn = (navigator as any).connection;
+    if (conn?.effectiveType) {
+      return conn.effectiveType.toUpperCase();
+    }
+    return 'Wi-Fi/Cabo';
+  }
+
+  public getDeviceName(): string {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('shopping_user_name');
+      if (saved) return saved;
+    }
+    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    return isMobile ? 'Celular' : 'Computador';
+  }
+
+  public getConnectedPeers(): PeerInfo[] {
+    return Array.from(this.activePeers.values());
+  }
+
+  private recordPeerActivity(peerId: string, name?: string, network?: string, region?: string) {
+    if (!peerId) return;
+    const existing = this.activePeers.get(peerId);
+    this.activePeers.set(peerId, {
+      id: peerId,
+      name: name || existing?.name || (peerId === this.deviceId ? this.getDeviceName() : 'Aparelho'),
+      network: network || existing?.network || (peerId === this.deviceId ? this.detectNetworkType() : 'Wi-Fi/4G'),
+      region: region || existing?.region || (peerId === this.deviceId ? this.detectRegion() : '🌐 Global'),
+      lastSeen: Date.now(),
+    });
+    this.connectedDevicesCount = Math.max(1, this.activePeers.size);
     this.updateStatus('connected', this.connectedDevicesCount);
   }
 
   private cleanupInactivePeers() {
     const now = Date.now();
     let changed = false;
-    for (const [id, lastSeen] of this.activePeers.entries()) {
-      if (now - lastSeen > 18000) {
+    for (const [id, peer] of this.activePeers.entries()) {
+      if (id !== this.deviceId && now - peer.lastSeen > 18000) {
         this.activePeers.delete(id);
         changed = true;
       }
     }
     if (changed) {
-      this.connectedDevicesCount = Math.max(1, this.activePeers.size + 1);
+      this.connectedDevicesCount = Math.max(1, this.activePeers.size);
       this.updateStatus('connected', this.connectedDevicesCount);
     }
   }
 
   private sendPeerHeartbeat() {
-    // 1. Track local device
-    this.recordPeerActivity(this.deviceId);
+    // 1. Record local device
+    this.recordPeerActivity(this.deviceId, this.getDeviceName(), this.detectNetworkType(), this.detectRegion());
 
     const pingPayload = JSON.stringify({
       type: 'PEER_PING',
       deviceId: this.deviceId,
+      name: this.getDeviceName(),
+      network: this.detectNetworkType(),
+      region: this.detectRegion(),
       timestamp: Date.now(),
     });
 

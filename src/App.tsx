@@ -22,7 +22,7 @@ import { adminAuthService } from './services/adminAuth';
 import { activityLogService } from './services/activityLogService';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useTheme } from './context/ThemeContext';
-import { deviceSyncService, SyncStatus } from './services/deviceSyncService';
+import { deviceSyncService, SyncStatus, PeerInfo } from './services/deviceSyncService';
 
 // Lazy-load secondary views and modals to minimize initial bundle size and maximize load speed
 const HistoryView = lazy(() => import('./components/HistoryView').then((m) => ({ default: m.HistoryView })));
@@ -68,6 +68,7 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => deviceSyncService.getStatus());
   const [connectedDevices, setConnectedDevices] = useState<number>(() => deviceSyncService.getConnectedDevicesCount());
   const [latencyMs, setLatencyMs] = useState<number>(() => deviceSyncService.getLatencyMs());
+  const [peers, setPeers] = useState<PeerInfo[]>(() => deviceSyncService.getConnectedPeers());
 
   // Admin auth state (Admin-only modification control)
   const [isAdmin, setIsAdmin] = useState<boolean>(() => adminAuthService.isAdmin());
@@ -238,10 +239,11 @@ export default function App() {
   // Real-time synchronization with Central Multi-Device Engine & Firestore
   useEffect(() => {
     // 1. Subscribe to Live Multi-Device Sync Engine (WebSocket 0ms)
-    const unsubStatus = deviceSyncService.subscribeStatus((status, count, latency) => {
+    const unsubStatus = deviceSyncService.subscribeStatus((status, count, latency, peerList) => {
       setSyncStatus(status);
       setConnectedDevices(count);
       if (latency !== undefined) setLatencyMs(latency);
+      if (peerList) setPeers(peerList);
     });
 
     const unsubDeviceData = deviceSyncService.subscribe((partial, source) => {
@@ -1580,6 +1582,7 @@ export default function App() {
             connectedDevices={connectedDevices}
             syncStatus={syncStatus}
             latencyMs={latencyMs}
+            peers={peers}
             onForceResync={handleForceResync}
           />
         </Suspense>

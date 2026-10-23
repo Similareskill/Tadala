@@ -134,8 +134,56 @@ function broadcastInstant(type: string, payload: any, sourceDevice?: string) {
   }
 }
 
+const GLOBAL_RELAY_TOPIC = 'tadala_fila_tadala_fila_guild';
+
+function pushToGlobalRelay(payload: any, sourceDevice?: string, reason?: string) {
+  fetch(`https://ntfy.sh/${GLOBAL_RELAY_TOPIC}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tags': 'sync_global', 'X-Title': 'Tadala Global Sync' },
+    body: JSON.stringify({
+      type: 'GLOBAL_SYNC_STATE',
+      sourceDevice: sourceDevice || 'server-backend',
+      reason,
+      payload,
+      version: syncState.version,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+
+// Connect server directly to the worldwide mesh relay
+function startGlobalRelayBridge() {
+  try {
+    const relayWs = new WebSocket(`wss://ntfy.sh/${GLOBAL_RELAY_TOPIC}/ws`);
+    relayWs.on('open', () => {
+      console.log('[Server Global Relay] Connected to worldwide multi-network sync mesh');
+    });
+    relayWs.on('message', (raw) => {
+      try {
+        const data = JSON.parse(raw.toString());
+        if (data.event === 'message' && data.message) {
+          const msg = JSON.parse(data.message);
+          if (msg.type === 'GLOBAL_SYNC_STATE' && msg.payload && msg.sourceDevice !== 'server-backend') {
+            applyPayload(msg.payload, msg.sourceDevice, 'global_mesh_sync', false);
+          }
+        }
+      } catch (err) {
+        console.warn('[Server Global Relay] Message parse error:', err);
+      }
+    });
+    relayWs.on('close', () => {
+      setTimeout(startGlobalRelayBridge, 3000);
+    });
+    relayWs.on('error', () => {});
+  } catch {
+    setTimeout(startGlobalRelayBridge, 5000);
+  }
+}
+
+startGlobalRelayBridge();
+
 // Apply partial sync payload to state and immediately broadcast
-function applyPayload(payload: any, sourceDevice?: string, reason?: string) {
+function applyPayload(payload: any, sourceDevice?: string, reason?: string, echoGlobal: boolean = true) {
   if (!payload || typeof payload !== 'object') return false;
 
   let hasChanges = false;
@@ -174,8 +222,13 @@ function applyPayload(payload: any, sourceDevice?: string, reason?: string) {
     syncState.lastUpdated = new Date().toISOString();
     persistState();
 
-    // Instant broadcast to all devices without queueing or ms limit
+    // Instant broadcast to local devices
     broadcastInstant('SYNC_UPDATE', payload, sourceDevice);
+
+    // Instant broadcast to all devices across different networks and countries
+    if (echoGlobal) {
+      pushToGlobalRelay(payload, sourceDevice, reason);
+    }
     return true;
   }
 
