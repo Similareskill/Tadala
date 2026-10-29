@@ -146,18 +146,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         {/* Novo Item Button */}
         <button
           onClick={onOpenNewItem}
-          style={isAdmin && currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
+          style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
           className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-150 shadow-md cursor-pointer whitespace-nowrap ${
             isAdmin
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] font-cinzel font-bold shadow-black/50'
-              : 'bg-[#0f131d] hover:bg-[#151c29] text-[#8e9cb3] border border-[#222a3d]'
+              : 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] font-cinzel font-bold shadow-black/50'
           }`}
           title={isAdmin ? 'Adicionar novo item de craft' : 'Apenas o Administrador pode adicionar itens. Clique para fazer login.'}
         >
           {isAdmin ? (
             <Plus className="w-4 h-4 stroke-[2.5]" />
           ) : (
-            <Lock className="w-3.5 h-3.5 text-[#c5a059] stroke-[2.5]" />
+            <Lock className="w-3.5 h-3.5 stroke-[2.5]" style={currentButtonColor ? { color: getButtonTextColor(currentButtonColor) } : undefined} />
           )}
           <span className="hidden sm:inline font-cinzel text-xs tracking-wider">Novo Item</span>
         </button>

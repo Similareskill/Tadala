@@ -216,10 +216,20 @@ html:not([data-theme="light"]) .bg-indigo-50 {
 
 /* Custom Button overrides */
 [data-has-custom-btn="true"] .btn-custom-theme,
-[data-has-custom-btn="true"] .btn-primary-action {
+[data-has-custom-btn="true"] .btn-primary-action,
+[data-has-custom-btn="true"] .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\],
+[data-has-custom-btn="true"] button.from-\[\#c5a059\],
+[data-has-custom-btn="true"] .bg-\[\#2a14b4\] {
   background: var(--custom-btn-gradient) !important;
   color: var(--custom-btn-text) !important;
   border-color: rgba(255, 255, 255, 0.25) !important;
 }
+
+[data-has-custom-btn="true"] .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\]:hover,
+[data-has-custom-btn="true"] button.from-\[\#c5a059\]:hover,
+[data-has-custom-btn="true"] .bg-\[\#2a14b4\]:hover {
+  filter: brightness(1.1);
+}
+
 
 
