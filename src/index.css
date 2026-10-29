@@ -214,21 +214,66 @@ html:not([data-theme="light"]) .bg-indigo-50 {
   background-color: var(--custom-bg-header) !important;
 }
 
-/* Custom Button overrides */
+/* Custom Button overrides across all pages */
 [data-has-custom-btn="true"] .btn-custom-theme,
 [data-has-custom-btn="true"] .btn-primary-action,
 [data-has-custom-btn="true"] .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\],
 [data-has-custom-btn="true"] button.from-\[\#c5a059\],
-[data-has-custom-btn="true"] .bg-\[\#2a14b4\] {
-  background: var(--custom-btn-gradient) !important;
+[data-has-custom-btn="true"] .bg-\[\#2a14b4\],
+[data-has-custom-btn="true"] button.btn-apply-theme,
+[data-has-custom-btn="true"] [data-action-btn="true"] {
+  background: var(--custom-btn-gradient, var(--custom-btn-color)) !important;
   color: var(--custom-btn-text) !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
 }
 
 [data-has-custom-btn="true"] .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\]:hover,
 [data-has-custom-btn="true"] button.from-\[\#c5a059\]:hover,
 [data-has-custom-btn="true"] .bg-\[\#2a14b4\]:hover {
   filter: brightness(1.1);
+}
+
+/* Custom Div / Cards / Panels overrides across all pages */
+[data-has-custom-div="true"] .bg-\[\#0e131e\],
+[data-has-custom-div="true"] .bg-\[\#0f131d\],
+[data-has-custom-div="true"] .bg-\[\#0c1018\],
+[data-has-custom-div="true"] .bg-\[\#0d121c\],
+[data-has-custom-div="true"] .bg-\[\#101522\],
+[data-has-custom-div="true"] .bg-\[\#131826\],
+[data-has-custom-div="true"] .bg-\[\#171f2f\],
+[data-has-custom-div="true"] .bg-\[\#1c2438\],
+[data-has-custom-div="true"] .bg-\[\#111726\],
+[data-has-custom-div="true"] .bg-\[\#1e2638\],
+[data-has-custom-div="true"] .bg-\[\#121624\],
+[data-has-custom-div="true"] .bg-\[\#080b13\],
+[data-has-custom-div="true"] .bg-\[\#070a10\],
+[data-has-custom-div="true"] .bg-\[\#090d15\],
+[data-has-custom-div="true"] .bg-\[\#181f2c\],
+[data-has-custom-div="true"] .bg-\[\#141a29\],
+[data-has-custom-div="true"] .bg-white,
+[data-has-custom-div="true"] .dark .bg-white,
+[data-has-custom-div="true"] .bg-\[\#f8fafc\],
+[data-has-custom-div="true"] .dark .bg-\[\#f8fafc\],
+[data-has-custom-div="true"] .bg-\[\#faf8ff\],
+[data-has-custom-div="true"] .dark .bg-\[\#faf8ff\],
+[data-has-custom-div="true"] .bg-\[\#f1f5f9\],
+[data-has-custom-div="true"] .dark .bg-\[\#f1f5f9\],
+[data-has-custom-div="true"] [data-card-surface],
+[data-has-custom-div="true"] .card-surface,
+[data-has-custom-div="true"] .group.relative.bg-\[\#0e131e\]\/90,
+[data-has-custom-div="true"] div[class*="bg-[#0e131e]"],
+[data-has-custom-div="true"] div[class*="bg-[#0f131d]"],
+[data-has-custom-div="true"] div[class*="bg-[#101522]"],
+[data-has-custom-div="true"] div[class*="bg-[#131826]"] {
+  background-color: var(--custom-div-bg) !important;
+  border-color: var(--custom-div-border) !important;
+}
+
+[data-has-custom-div="true"] .border-\[\#242e42\],
+[data-has-custom-div="true"] .border-\[\#1f273a\],
+[data-has-custom-div="true"] .border-\[\#222b3e\],
+[data-has-custom-div="true"] .border-\[\#2a3449\] {
+  border-color: var(--custom-div-border) !important;
 }
 
 

@@ -406,6 +406,34 @@ export const BUTTON_COLOR_PRESETS: ButtonColorPreset[] = [
   { id: 'dark', name: 'Carvão / Noite Escura', color: '#1e293b', gradient: 'linear-gradient(135deg, #475569 0%, #1e293b 50%, #0f172a 100%)', textColor: '#f8fafc' },
 ];
 
+export interface DivColorPreset {
+  id: string;
+  name: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  badge?: string;
+}
+
+export const DIV_COLOR_PRESETS: DivColorPreset[] = [
+  { id: 'night-crows', name: 'Night Crows (Gótico Padrão)', color: '#0e131e', borderColor: '#242e42', textColor: '#f1f5f9', badge: 'Padrão' },
+  { id: 'obsidian-black', name: 'Obsidiana (Preto AMOLED)', color: '#06080c', borderColor: '#1f2738', textColor: '#f8fafc', badge: 'AMOLED' },
+  { id: 'citadel-blue', name: 'Cidadela (Azul Profundo)', color: '#0b162a', borderColor: '#1d3154', textColor: '#e2e8f0', badge: 'Azul' },
+  { id: 'crimson-keep', name: 'Baluarte (Carmim Noturno)', color: '#1a0912', borderColor: '#3b1628', textColor: '#fce7f3', badge: 'Carmim' },
+  { id: 'imperial-throne', name: 'Salão Real (Ébano & Ouro)', color: '#1a1306', borderColor: '#3b2c0f', textColor: '#fef3c7', badge: 'Ouro' },
+  { id: 'emerald-forest', name: 'Floresta (Esmeralda Mística)', color: '#071810', borderColor: '#113a24', textColor: '#d1fae5', badge: 'Verde' },
+  { id: 'arcane-violet', name: 'Torre Arcana (Violeta Noturna)', color: '#140a24', borderColor: '#2e1852', textColor: '#f3e8ff', badge: 'Violeta' },
+  { id: 'charcoal-slate', name: 'Carvão (Cinza Aço Escuro)', color: '#141a26', borderColor: '#2a364d', textColor: '#f1f5f9', badge: 'Cinza' },
+  { id: 'medieval-parchment', name: 'Pergaminho (Claro Medieval)', color: '#f8fafc', borderColor: '#cbd5e1', textColor: '#0f172a', badge: 'Claro' },
+];
+
+export function getDivBorderColor(color?: string): string {
+  if (!color || !color.startsWith('#')) return '#242e42';
+  const matched = DIV_COLOR_PRESETS.find((p) => p.color.toLowerCase() === color.toLowerCase());
+  if (matched?.borderColor) return matched.borderColor;
+  return `${color}88`;
+}
+
 export function getContrastTextColor(hexColor?: string): string {
   if (!hexColor || !hexColor.startsWith('#')) return '#ffffff';
   try {
@@ -433,6 +461,7 @@ interface ThemeContextType {
   activeThemeId: string;
   currentTextColor: string;
   currentButtonColor: string;
+  currentDivColor: string;
   customBgMain: string;
   customBgCard: string;
   backgroundConfig: ThemeBackgroundConfig;
@@ -446,8 +475,11 @@ interface ThemeContextType {
   setCustomTheme: (bgMain: string, bgCard: string) => void;
   setTextColor: (color: string) => void;
   setButtonColor: (color: string) => void;
+  setDivColor: (color: string) => void;
   getButtonGradient: (color?: string) => string;
   getButtonTextColor: (color?: string) => string;
+  getDivBorderColor: (divColor?: string) => string;
+  getDivTextColor: (divColor?: string) => string;
   setBackgroundConfig: (config: Partial<ThemeBackgroundConfig>) => void;
   saveBackgroundToCurrentTheme: (config: ThemeBackgroundConfig) => void;
   saveCustomThemePreset: (preset: Partial<ThemePreset> & { name: string; bgMain: string; bgCard: string; accent: string }) => ThemePreset;
@@ -462,6 +494,7 @@ const THEME_MODE_STORAGE_KEY = 'app_theme_mode';
 const THEME_PRESET_STORAGE_KEY = 'app_theme_preset_id';
 const THEME_TEXT_COLOR_STORAGE_KEY = 'app_theme_text_color';
 const THEME_BUTTON_COLOR_STORAGE_KEY = 'app_theme_button_color';
+const THEME_DIV_COLOR_STORAGE_KEY = 'app_theme_div_color';
 const THEME_CUSTOM_BG_STORAGE_KEY = 'app_theme_custom_bg';
 const THEME_CUSTOM_CARD_STORAGE_KEY = 'app_theme_custom_card';
 const THEME_SAVED_BG_MAP_STORAGE_KEY = 'app_theme_saved_bg_map_v4';
@@ -518,6 +551,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentButtonColor, setCurrentButtonColor] = useState<string>(() => {
     try {
       return localStorage.getItem(THEME_BUTTON_COLOR_STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  // Custom div / container / card color (hex or empty for default)
+  const [currentDivColor, setCurrentDivColor] = useState<string>(() => {
+    try {
+      return localStorage.getItem(THEME_DIV_COLOR_STORAGE_KEY) || '';
     } catch {
       return '';
     }
@@ -692,7 +734,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.removeItem(THEME_BUTTON_COLOR_STORAGE_KEY);
       }
 
-      // 4. Custom theme colors
+      // 4. Custom div / card container color
+      if (currentDivColor && currentDivColor.trim() !== '') {
+        root.setAttribute('data-has-custom-div', 'true');
+        root.style.setProperty('--custom-div-bg', currentDivColor);
+        root.style.setProperty('--custom-div-border', getDivBorderColor(currentDivColor));
+        root.style.setProperty('--custom-div-text', getContrastTextColor(currentDivColor));
+        localStorage.setItem(THEME_DIV_COLOR_STORAGE_KEY, currentDivColor);
+      } else {
+        root.removeAttribute('data-has-custom-div');
+        root.style.removeProperty('--custom-div-bg');
+        root.style.removeProperty('--custom-div-border');
+        root.style.removeProperty('--custom-div-text');
+        localStorage.removeItem(THEME_DIV_COLOR_STORAGE_KEY);
+      }
+
+      // 5. Custom theme colors
       const matchedPreset = allThemes.find((p) => p.id === activeThemeId);
       const isCustomTheme =
         (matchedPreset && !matchedPreset.id.startsWith('default-')) ||
@@ -701,7 +758,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isCustomTheme) {
         root.setAttribute('data-has-custom-theme', 'true');
         const bg = customBgMain || matchedPreset?.bgMain || (theme === 'dark' ? '#080a0f' : '#faf8ff');
-        const card = customBgCard || matchedPreset?.bgCard || (theme === 'dark' ? '#0f131d' : '#ffffff');
+        const card = currentDivColor || customBgCard || matchedPreset?.bgCard || (theme === 'dark' ? '#0f131d' : '#ffffff');
         const header = matchedPreset?.bgHeader || card;
 
         root.style.setProperty('--custom-bg-main', bg);
@@ -723,7 +780,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {
       console.warn('Failed to apply theme variables:', e);
     }
-  }, [theme, activeThemeId, currentTextColor, currentButtonColor, customBgMain, customBgCard, allThemes]);
+  }, [theme, activeThemeId, currentTextColor, currentButtonColor, currentDivColor, customBgMain, customBgCard, allThemes]);
 
   // Compute the live backgroundStyle object for App container
   const backgroundStyle = useMemo<React.CSSProperties>(() => {
@@ -923,11 +980,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentButtonColor(color);
   };
 
+  const setDivColor = (color: string) => {
+    setCurrentDivColor(color);
+  };
+
   const resetAllColors = () => {
     setThemeState('dark');
     setActiveThemeId('night-crows-eclipse');
     setCurrentTextColor('');
     setCurrentButtonColor('');
+    setCurrentDivColor('');
     setCustomBgMain('');
     setCustomBgCard('');
     const defaultBg: ThemeBackgroundConfig = {
@@ -949,6 +1011,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.removeItem(THEME_PRESET_STORAGE_KEY);
       localStorage.removeItem(THEME_TEXT_COLOR_STORAGE_KEY);
       localStorage.removeItem(THEME_BUTTON_COLOR_STORAGE_KEY);
+      localStorage.removeItem(THEME_DIV_COLOR_STORAGE_KEY);
       localStorage.removeItem(THEME_CUSTOM_BG_STORAGE_KEY);
       localStorage.removeItem(THEME_CUSTOM_CARD_STORAGE_KEY);
       localStorage.removeItem(THEME_SAVED_BG_MAP_STORAGE_KEY);
@@ -964,6 +1027,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeThemeId,
         currentTextColor,
         currentButtonColor,
+        currentDivColor,
         customBgMain,
         customBgCard,
         backgroundConfig,
@@ -977,8 +1041,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCustomTheme,
         setTextColor,
         setButtonColor,
+        setDivColor,
         getButtonGradient,
         getButtonTextColor: getContrastTextColor,
+        getDivBorderColor,
+        getDivTextColor: getContrastTextColor,
         setBackgroundConfig,
         saveBackgroundToCurrentTheme,
         saveCustomThemePreset,

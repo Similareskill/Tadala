@@ -10,12 +10,14 @@ import {
   Sliders,
   X,
   MousePointerClick,
+  Layers,
 } from 'lucide-react';
 import {
   useTheme,
   THEME_PRESETS,
   TEXT_COLOR_PRESETS,
   BUTTON_COLOR_PRESETS,
+  DIV_COLOR_PRESETS,
 } from '../context/ThemeContext';
 import { playHapticSound } from '../utils/helpers';
 
@@ -36,22 +38,27 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
     activeThemeId,
     currentTextColor,
     currentButtonColor,
+    currentDivColor,
     customBgMain,
     toggleTheme,
     applyThemePreset,
     setCustomTheme,
     setTextColor,
     setButtonColor,
+    setDivColor,
     getButtonGradient,
     getButtonTextColor,
+    getDivBorderColor,
+    getDivTextColor,
     resetAllColors,
   } = useTheme();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tema' | 'letras' | 'botoes'>('tema');
+  const [activeTab, setActiveTab] = useState<'botoes' | 'divs' | 'tema' | 'letras'>('botoes');
   const [customThemeBgInput, setCustomThemeBgInput] = useState(customBgMain || (isDark ? '#0b0f19' : '#faf8ff'));
   const [customTextInput, setCustomTextInput] = useState(currentTextColor || (isDark ? '#ffffff' : '#131b2e'));
   const [customBtnInput, setCustomBtnInput] = useState(currentButtonColor || '#c5a059');
+  const [customDivInput, setCustomDivInput] = useState(currentDivColor || '#0e131e');
 
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -129,6 +136,18 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
     setButtonColor(color);
   };
 
+  const handleSelectDivColor = (color: string) => {
+    try {
+      playHapticSound('click');
+    } catch {}
+    setDivColor(color);
+  };
+
+  const handleApplyCustomDivColor = (color: string) => {
+    setCustomDivInput(color);
+    setDivColor(color);
+  };
+
   const handleReset = () => {
     try {
       playHapticSound('delete');
@@ -137,6 +156,7 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
     setCustomThemeBgInput('#faf8ff');
     setCustomTextInput('');
     setCustomBtnInput('#c5a059');
+    setCustomDivInput('#0e131e');
   };
 
   const iconSizes = {
@@ -253,7 +273,7 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
                   Menu de Cores
                 </h3>
                 <p className="text-[10px] text-[#64748b] dark:text-[#94a3b8]">
-                  Mude a cor do tema e das letras
+                  Personalize botões, divs e cores de todas as páginas
                 </p>
               </div>
             </div>
@@ -285,8 +305,44 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
             </div>
           </div>
 
-          {/* Navigation Tabs (Tema vs Letras vs Cor do Botão) */}
-          <div className="grid grid-cols-3 gap-1 p-1 bg-[#f8fafc] dark:bg-[#0d121e] rounded-2xl my-3 border border-[#e2e8f0] dark:border-[#222b3e]">
+          {/* Navigation Tabs (Botão vs Divs vs Tema vs Letras) */}
+          <div className="grid grid-cols-4 gap-1 p-1 bg-[#f8fafc] dark:bg-[#0d121e] rounded-2xl my-3 border border-[#e2e8f0] dark:border-[#222b3e]">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('botoes');
+                try {
+                  playHapticSound('click');
+                } catch {}
+              }}
+              className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                activeTab === 'botoes'
+                  ? 'bg-white dark:bg-[#1c2438] text-[#2a14b4] dark:text-amber-300 shadow-xs'
+                  : 'text-[#64748b] dark:text-[#94a3b8] hover:text-[#131b2e] dark:hover:text-white'
+              }`}
+            >
+              <MousePointerClick className="w-3.5 h-3.5 shrink-0" />
+              <span>Botão</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('divs');
+                try {
+                  playHapticSound('click');
+                } catch {}
+              }}
+              className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                activeTab === 'divs'
+                  ? 'bg-white dark:bg-[#1c2438] text-[#2a14b4] dark:text-amber-300 shadow-xs'
+                  : 'text-[#64748b] dark:text-[#94a3b8] hover:text-[#131b2e] dark:hover:text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              <span>Divs</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -295,7 +351,7 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
                   playHapticSound('click');
                 } catch {}
               }}
-              className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+              className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 activeTab === 'tema'
                   ? 'bg-white dark:bg-[#1c2438] text-[#2a14b4] dark:text-amber-300 shadow-xs'
                   : 'text-[#64748b] dark:text-[#94a3b8] hover:text-[#131b2e] dark:hover:text-white'
@@ -313,7 +369,7 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
                   playHapticSound('click');
                 } catch {}
               }}
-              className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+              className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 activeTab === 'letras'
                   ? 'bg-white dark:bg-[#1c2438] text-[#2a14b4] dark:text-amber-300 shadow-xs'
                   : 'text-[#64748b] dark:text-[#94a3b8] hover:text-[#131b2e] dark:hover:text-white'
@@ -321,24 +377,6 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
             >
               <Type className="w-3.5 h-3.5 shrink-0" />
               <span>Letras</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('botoes');
-                try {
-                  playHapticSound('click');
-                } catch {}
-              }}
-              className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                activeTab === 'botoes'
-                  ? 'bg-white dark:bg-[#1c2438] text-[#2a14b4] dark:text-amber-300 shadow-xs'
-                  : 'text-[#64748b] dark:text-[#94a3b8] hover:text-[#131b2e] dark:hover:text-white'
-              }`}
-            >
-              <MousePointerClick className="w-3.5 h-3.5 shrink-0" />
-              <span>Botão</span>
             </button>
           </div>
 
@@ -657,7 +695,112 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
                   </div>
                 </div>
                 <div className="text-[11px] text-[#64748b] dark:text-[#94a3b8] pt-1">
-                  Os botões de navegação, ações e menus do app usarão esta tonalidade.
+                  Aplica a todos os botões de todas as páginas (Novo Item, Filtros, Salvar, Ações, Boss, Rank e Menus).
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: COR DAS DIVS & CARDS */}
+          {activeTab === 'divs' && (
+            <div className="space-y-3.5 animate-in fade-in duration-150">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-[#c5a059] flex items-center gap-2">
+                <Layers className="w-4 h-4 shrink-0" />
+                <span>Aplica a cor em <strong>todas as divs, cards, quadros e tabelas</strong> de todas as páginas!</span>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-bold text-[#64748b] dark:text-[#94a3b8] uppercase tracking-wider block mb-2">
+                  Cores de Divs e Cards Prontas:
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {DIV_COLOR_PRESETS.map((preset) => {
+                    const isSelected =
+                      (!currentDivColor && preset.id === 'night-crows') ||
+                      (currentDivColor.toLowerCase() === preset.color.toLowerCase());
+
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelectDivColor(preset.color)}
+                        className={`p-2.5 rounded-2xl border transition-all text-left flex items-center gap-2.5 cursor-pointer ${
+                          isSelected
+                            ? 'ring-2 ring-[#c5a059] border-[#c5a059] bg-[#c5a059]/15 shadow-xs'
+                            : 'border-[#e2e8f0] dark:border-[#222b3e] bg-[#f8fafc] dark:bg-[#171f2f] hover:border-[#cbd5e1] dark:hover:border-[#334155]'
+                        }`}
+                      >
+                        {/* Div preview swatch */}
+                        <div
+                          className="w-7 h-7 rounded-xl shrink-0 border shadow-xs"
+                          style={{
+                            backgroundColor: preset.color,
+                            borderColor: preset.borderColor,
+                          }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold truncate text-[#131b2e] dark:text-white">
+                            {preset.name}
+                          </div>
+                          <div className="text-[10px] text-[#64748b] dark:text-[#94a3b8] font-mono">
+                            {preset.color}
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <Check className="w-3.5 h-3.5 text-[#2a14b4] dark:text-[#c5a059] shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Seletor de Cor Livre das Divs */}
+              <div className="p-3 bg-[#f8fafc] dark:bg-[#171f2f] rounded-2xl border border-[#e2e8f0] dark:border-[#222b3e] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1e293b] dark:text-white flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-[#c5a059]" />
+                    <span>Cor Livre de Divs & Cards:</span>
+                  </span>
+                  <span className="text-[10px] text-[#64748b] dark:text-[#94a3b8]">
+                    Qualquer tom
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={customDivInput || '#0e131e'}
+                    onChange={(e) => handleApplyCustomDivColor(e.target.value)}
+                    className="w-9 h-9 rounded-xl border border-[#cbd5e1] cursor-pointer p-0.5 bg-white dark:bg-[#131826]"
+                    title="Escolha qualquer cor para as divs de todas as páginas"
+                  />
+                  <input
+                    type="text"
+                    value={customDivInput}
+                    onChange={(e) => handleApplyCustomDivColor(e.target.value)}
+                    placeholder="#0e131e"
+                    className="flex-1 px-3 py-1.5 text-xs font-mono rounded-xl border border-[#cbd5e1] dark:border-[#2a3449] bg-white dark:bg-[#131826] text-[#131b2e] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              {/* Amostra / Live Preview das Divs */}
+              <div
+                className="p-3.5 rounded-2xl border transition-all space-y-1.5 text-center shadow-md"
+                style={{
+                  backgroundColor: currentDivColor || '#0e131e',
+                  borderColor: getDivBorderColor(currentDivColor),
+                  color: getDivTextColor(currentDivColor),
+                }}
+              >
+                <div className="text-[10px] font-bold uppercase tracking-wider opacity-75">
+                  Amostra da Div / Card ao Vivo:
+                </div>
+                <div className="text-sm font-bold font-display">
+                  Quadro de Exemplo • Todas as Páginas
+                </div>
+                <div className="text-xs opacity-85">
+                  Itens da fila, cards de Boss, quadros do Rank, status de membros e painéis adotam este fundo.
                 </div>
               </div>
             </div>
