@@ -94,11 +94,19 @@ class DeviceSyncService {
       const params = new URLSearchParams(window.location.search);
       const roomParam = params.get('room');
       if (roomParam && roomParam.trim()) {
-        return roomParam.trim().toLowerCase();
+        const cleaned = roomParam.trim().toLowerCase();
+        if (cleaned === 'tadala_fila' || cleaned === 'tadala_fila_guild' || cleaned === 'default') {
+          return 'tadala_fila_guild';
+        }
+        return cleaned;
       }
       const savedRoom = localStorage.getItem('tadala_guild_room_id');
       if (savedRoom && savedRoom.trim()) {
-        return savedRoom.trim().toLowerCase();
+        const cleaned = savedRoom.trim().toLowerCase();
+        if (cleaned === 'tadala_fila' || cleaned === 'tadala_fila_guild' || cleaned === 'default') {
+          return 'tadala_fila_guild';
+        }
+        return cleaned;
       }
     } catch {}
     return 'tadala_fila_guild';

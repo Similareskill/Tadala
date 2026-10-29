@@ -868,9 +868,16 @@ export default function App() {
       items: cartItems,
     };
 
-    setHistory((prev) => [newHistoryEntry, ...prev]);
+    setHistory((prev) => {
+      const nextHist = [newHistoryEntry, ...prev];
+      setItems((prevItems) => {
+        const nextItems = prevItems.filter((i) => i.status !== 'no_carrinho');
+        deviceSyncService.pushStateUpdate({ history: nextHist, items: nextItems }, 'finish_shopping').catch(() => {});
+        return nextItems;
+      });
+      return nextHist;
+    });
     const collectedIds = cartItems.map((i) => i.id);
-    setItems((prev) => prev.filter((i) => i.status !== 'no_carrinho'));
     showToast('Compra finalizada e arquivada no Histórico!');
     setCurrentTab('historico');
 
@@ -894,7 +901,11 @@ export default function App() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }));
-    setItems((prev) => [...newItems, ...prev]);
+    setItems((prev) => {
+      const next = [...newItems, ...prev];
+      deviceSyncService.pushStateUpdate({ items: next }, 'restore_items').catch(() => {});
+      return next;
+    });
     showToast(`${newItems.length} itens adicionados de volta à lista ativa`);
     setCurrentTab('lista');
 
@@ -907,7 +918,11 @@ export default function App() {
 
   const handleDeleteHistoryEntry = async (id: string) => {
     if (!requireAdmin('Apenas o Administrador pode excluir registros do histórico.')) return;
-    setHistory((prev) => prev.filter((h) => h.id !== id));
+    setHistory((prev) => {
+      const next = prev.filter((h) => h.id !== id);
+      deviceSyncService.pushStateUpdate({ history: next }, 'delete_history').catch(() => {});
+      return next;
+    });
     showToast('Registro de histórico excluído');
 
     try {

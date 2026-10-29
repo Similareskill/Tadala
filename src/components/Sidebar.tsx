@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { AdminAccount } from '../types/shopping';
+import { useTheme } from '../context/ThemeContext';
 import nightCrowsEmblem from '../assets/images/night_crows_emblem_1792563012471.jpg';
 
 export type TabType = 'lista' | 'historico' | 'checkin' | 'rank' | 'status' | 'configuracoes';
@@ -52,6 +53,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAdminLogin,
   onAdminLogout,
 }) => {
+  const { currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
+
+  const activeBtnStyle: React.CSSProperties | undefined = currentButtonColor
+    ? {
+        background: getButtonGradient(currentButtonColor),
+        color: getButtonTextColor(currentButtonColor),
+        borderColor: `${currentButtonColor}aa`,
+        boxShadow: `0 4px 12px ${currentButtonColor}40`,
+      }
+    : undefined;
+
+  const activeBadgeStyle: React.CSSProperties | undefined = currentButtonColor
+    ? {
+        backgroundColor: 'rgba(0, 0, 0, 0.28)',
+        color: getButtonTextColor(currentButtonColor),
+      }
+    : undefined;
+
   const userInitials = user?.displayName
     ? user.displayName.slice(0, 2).toUpperCase()
     : user?.email
@@ -84,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className="p-3 space-y-1.5 flex-1">
         <button
           onClick={() => onSelectTab('lista')}
+          style={currentTab === 'lista' ? activeBtnStyle : undefined}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'lista'
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
@@ -96,6 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {pendingCount > 0 && (
             <span
+              style={currentTab === 'lista' ? activeBadgeStyle : undefined}
               className={`text-xs px-2 py-0.5 rounded-full font-bold tabular-nums ${
                 currentTab === 'lista'
                   ? 'bg-[#080a0f]/30 text-[#080a0f]'
@@ -109,6 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={() => onSelectTab('historico')}
+          style={currentTab === 'historico' ? activeBtnStyle : undefined}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'historico'
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
@@ -128,6 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={() => onSelectTab('checkin')}
+          style={currentTab === 'checkin' ? activeBtnStyle : undefined}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'checkin'
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
@@ -158,6 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={() => onSelectTab('rank')}
+          style={currentTab === 'rank' ? activeBtnStyle : undefined}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'rank'
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
@@ -181,6 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={() => onSelectTab('status')}
+          style={currentTab === 'status' ? activeBtnStyle : undefined}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'status'
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
@@ -204,6 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={() => onSelectTab('configuracoes')}
+          style={currentTab === 'configuracoes' ? activeBtnStyle : undefined}
           className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
             currentTab === 'configuracoes'
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] font-bold shadow-md shadow-black/40 border border-[#f5eccb]/40'
@@ -275,6 +301,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onOpenAdminLogin}
+              style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
               className="w-full py-2 px-3 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] text-xs font-bold font-cinzel rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-black/40"
             >
               <KeyRound className="w-3.5 h-3.5" />

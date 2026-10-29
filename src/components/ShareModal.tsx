@@ -56,10 +56,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           : `${window.location.origin}${window.location.pathname}`;
         try {
           const u = new URL(base);
-          u.searchParams.set('room', 'tadala_fila');
+          u.searchParams.set('room', 'tadala_fila_guild');
           return u.toString();
         } catch {
-          return `${base}?room=tadala_fila`;
+          return `${base}?room=tadala_fila_guild`;
         }
       })()
     : '';

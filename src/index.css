@@ -214,4 +214,12 @@ html:not([data-theme="light"]) .bg-indigo-50 {
   background-color: var(--custom-bg-header) !important;
 }
 
+/* Custom Button overrides */
+[data-has-custom-btn="true"] .btn-custom-theme,
+[data-has-custom-btn="true"] .btn-primary-action {
+  background: var(--custom-btn-gradient) !important;
+  color: var(--custom-btn-text) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
 

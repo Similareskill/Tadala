@@ -386,11 +386,53 @@ export const TEXT_COLOR_PRESETS: TextColorPreset[] = [
   { id: 'silver', name: 'Cinza Prata', color: '#cbd5e1', previewBg: '#cbd5e1' },
 ];
 
+export interface ButtonColorPreset {
+  id: string;
+  name: string;
+  color: string;
+  gradient: string;
+  textColor: string;
+}
+
+export const BUTTON_COLOR_PRESETS: ButtonColorPreset[] = [
+  { id: 'gold', name: 'Ouro Real / Night Crows', color: '#c5a059', gradient: 'linear-gradient(135deg, #dfb96c 0%, #c5a059 50%, #9e7d38 100%)', textColor: '#080a0f' },
+  { id: 'blue', name: 'Azul Safira / Batalha', color: '#2563eb', gradient: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 50%, #1d4ed8 100%)', textColor: '#ffffff' },
+  { id: 'crimson', name: 'Vermelho Carmim / Sangue', color: '#dc2626', gradient: 'linear-gradient(135deg, #f87171 0%, #dc2626 50%, #991b1b 100%)', textColor: '#ffffff' },
+  { id: 'emerald', name: 'Verde Esmeralda / Runa', color: '#059669', gradient: 'linear-gradient(135deg, #34d399 0%, #059669 50%, #065f46 100%)', textColor: '#ffffff' },
+  { id: 'purple', name: 'Roxo Arcano / Mago', color: '#9333ea', gradient: 'linear-gradient(135deg, #c084fc 0%, #9333ea 50%, #6b21a8 100%)', textColor: '#ffffff' },
+  { id: 'amber', name: 'Âmbar / Fogo Vulcânico', color: '#ea580c', gradient: 'linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #9a3412 100%)', textColor: '#ffffff' },
+  { id: 'cyan', name: 'Ciano Glacial / Neon', color: '#0891b2', gradient: 'linear-gradient(135deg, #38bdf8 0%, #0891b2 50%, #155e75 100%)', textColor: '#ffffff' },
+  { id: 'rose', name: 'Rosa Escarlate / Místico', color: '#db2777', gradient: 'linear-gradient(135deg, #f472b6 0%, #db2777 50%, #9d174d 100%)', textColor: '#ffffff' },
+  { id: 'dark', name: 'Carvão / Noite Escura', color: '#1e293b', gradient: 'linear-gradient(135deg, #475569 0%, #1e293b 50%, #0f172a 100%)', textColor: '#f8fafc' },
+];
+
+export function getContrastTextColor(hexColor?: string): string {
+  if (!hexColor || !hexColor.startsWith('#')) return '#ffffff';
+  try {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 140 ? '#080a0f' : '#ffffff';
+  } catch {
+    return '#ffffff';
+  }
+}
+
+export function getButtonGradient(color?: string): string {
+  if (!color) return 'linear-gradient(135deg, #dfb96c 0%, #c5a059 50%, #9e7d38 100%)';
+  const matched = BUTTON_COLOR_PRESETS.find((p) => p.color.toLowerCase() === color.toLowerCase());
+  if (matched?.gradient) return matched.gradient;
+  return `linear-gradient(135deg, ${color} 0%, ${color} 100%)`;
+}
+
 interface ThemeContextType {
   theme: ThemeMode;
   isDark: boolean;
   activeThemeId: string;
   currentTextColor: string;
+  currentButtonColor: string;
   customBgMain: string;
   customBgCard: string;
   backgroundConfig: ThemeBackgroundConfig;
@@ -403,6 +445,9 @@ interface ThemeContextType {
   applyThemePreset: (presetId: string) => void;
   setCustomTheme: (bgMain: string, bgCard: string) => void;
   setTextColor: (color: string) => void;
+  setButtonColor: (color: string) => void;
+  getButtonGradient: (color?: string) => string;
+  getButtonTextColor: (color?: string) => string;
   setBackgroundConfig: (config: Partial<ThemeBackgroundConfig>) => void;
   saveBackgroundToCurrentTheme: (config: ThemeBackgroundConfig) => void;
   saveCustomThemePreset: (preset: Partial<ThemePreset> & { name: string; bgMain: string; bgCard: string; accent: string }) => ThemePreset;
@@ -416,6 +461,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_MODE_STORAGE_KEY = 'app_theme_mode';
 const THEME_PRESET_STORAGE_KEY = 'app_theme_preset_id';
 const THEME_TEXT_COLOR_STORAGE_KEY = 'app_theme_text_color';
+const THEME_BUTTON_COLOR_STORAGE_KEY = 'app_theme_button_color';
 const THEME_CUSTOM_BG_STORAGE_KEY = 'app_theme_custom_bg';
 const THEME_CUSTOM_CARD_STORAGE_KEY = 'app_theme_custom_card';
 const THEME_SAVED_BG_MAP_STORAGE_KEY = 'app_theme_saved_bg_map_v4';
@@ -463,6 +509,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentTextColor, setCurrentTextColor] = useState<string>(() => {
     try {
       return localStorage.getItem(THEME_TEXT_COLOR_STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  // Custom button color (hex or empty for default)
+  const [currentButtonColor, setCurrentButtonColor] = useState<string>(() => {
+    try {
+      return localStorage.getItem(THEME_BUTTON_COLOR_STORAGE_KEY) || '';
     } catch {
       return '';
     }
@@ -622,7 +677,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.removeItem(THEME_TEXT_COLOR_STORAGE_KEY);
       }
 
-      // 3. Custom theme colors
+      // 3. Custom button color
+      if (currentButtonColor && currentButtonColor.trim() !== '') {
+        root.setAttribute('data-has-custom-btn', 'true');
+        root.style.setProperty('--custom-btn-color', currentButtonColor);
+        root.style.setProperty('--custom-btn-gradient', getButtonGradient(currentButtonColor));
+        root.style.setProperty('--custom-btn-text', getContrastTextColor(currentButtonColor));
+        localStorage.setItem(THEME_BUTTON_COLOR_STORAGE_KEY, currentButtonColor);
+      } else {
+        root.removeAttribute('data-has-custom-btn');
+        root.style.removeProperty('--custom-btn-color');
+        root.style.removeProperty('--custom-btn-gradient');
+        root.style.removeProperty('--custom-btn-text');
+        localStorage.removeItem(THEME_BUTTON_COLOR_STORAGE_KEY);
+      }
+
+      // 4. Custom theme colors
       const matchedPreset = allThemes.find((p) => p.id === activeThemeId);
       const isCustomTheme =
         (matchedPreset && !matchedPreset.id.startsWith('default-')) ||
@@ -653,7 +723,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {
       console.warn('Failed to apply theme variables:', e);
     }
-  }, [theme, activeThemeId, currentTextColor, customBgMain, customBgCard, allThemes]);
+  }, [theme, activeThemeId, currentTextColor, currentButtonColor, customBgMain, customBgCard, allThemes]);
 
   // Compute the live backgroundStyle object for App container
   const backgroundStyle = useMemo<React.CSSProperties>(() => {
@@ -849,10 +919,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentTextColor(color);
   };
 
+  const setButtonColor = (color: string) => {
+    setCurrentButtonColor(color);
+  };
+
   const resetAllColors = () => {
     setThemeState('dark');
     setActiveThemeId('night-crows-eclipse');
     setCurrentTextColor('');
+    setCurrentButtonColor('');
     setCustomBgMain('');
     setCustomBgCard('');
     const defaultBg: ThemeBackgroundConfig = {
@@ -873,6 +948,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.removeItem(THEME_MODE_STORAGE_KEY);
       localStorage.removeItem(THEME_PRESET_STORAGE_KEY);
       localStorage.removeItem(THEME_TEXT_COLOR_STORAGE_KEY);
+      localStorage.removeItem(THEME_BUTTON_COLOR_STORAGE_KEY);
       localStorage.removeItem(THEME_CUSTOM_BG_STORAGE_KEY);
       localStorage.removeItem(THEME_CUSTOM_CARD_STORAGE_KEY);
       localStorage.removeItem(THEME_SAVED_BG_MAP_STORAGE_KEY);
@@ -887,6 +963,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isDark: theme === 'dark',
         activeThemeId,
         currentTextColor,
+        currentButtonColor,
         customBgMain,
         customBgCard,
         backgroundConfig,
@@ -899,6 +976,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         applyThemePreset,
         setCustomTheme,
         setTextColor,
+        setButtonColor,
+        getButtonGradient,
+        getButtonTextColor: getContrastTextColor,
         setBackgroundConfig,
         saveBackgroundToCurrentTheme,
         saveCustomThemePreset,
