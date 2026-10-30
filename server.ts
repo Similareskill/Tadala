@@ -160,9 +160,7 @@ function startGlobalRelayBridge() {
     });
     relayWs.on('message', (raw) => {
       try {
-        const rawStr = raw.toString().trim();
-        if (!rawStr.startsWith('{') || !rawStr.endsWith('}')) return;
-        const data = JSON.parse(rawStr);
+        const data = JSON.parse(raw.toString());
         if (data.event === 'message' && typeof data.message === 'string') {
           const trimmed = data.message.trim();
           if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
