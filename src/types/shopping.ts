@@ -45,6 +45,8 @@ export interface AppSettings {
   backgroundOverlay?: string;
   backgroundOpacity?: number;
   textColor?: string;
+  buttonColor?: string;
+  divColor?: string;
   customThemes?: any[];
 }
 

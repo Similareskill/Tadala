@@ -48,7 +48,18 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
-  const { backgroundStyle, applyThemePreset, saveBackgroundToCurrentTheme, activeThemeId, currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
+  const {
+    backgroundStyle,
+    applyThemePreset,
+    saveBackgroundToCurrentTheme,
+    activeThemeId,
+    currentButtonColor,
+    currentDivColor,
+    getButtonGradient,
+    getButtonTextColor,
+    setButtonColor,
+    setDivColor,
+  } = useTheme();
 
   // Navigation tab state
   const [currentTab, setCurrentTab] = useState<TabType>('lista');
@@ -262,6 +273,12 @@ export default function App() {
       }
       if (partial.settings && typeof partial.settings === 'object') {
         setSettings((prev) => ({ ...prev, ...partial.settings }));
+        if (partial.settings.buttonColor !== undefined) {
+          setButtonColor(partial.settings.buttonColor);
+        }
+        if (partial.settings.divColor !== undefined) {
+          setDivColor(partial.settings.divColor);
+        }
       }
       if (partial.history !== undefined && Array.isArray(partial.history)) {
         setHistory(partial.history);
@@ -303,6 +320,12 @@ export default function App() {
     const unsubSettings = settingsService.subscribe((remoteSettings) => {
       if (remoteSettings && remoteSettings.listName) {
         setSettings(remoteSettings);
+        if (remoteSettings.buttonColor !== undefined) {
+          setButtonColor(remoteSettings.buttonColor);
+        }
+        if (remoteSettings.divColor !== undefined) {
+          setDivColor(remoteSettings.divColor);
+        }
         deviceSyncService.pushStateUpdate({ settings: remoteSettings }, 'firestore_settings').catch(() => {});
       }
     });
@@ -1053,6 +1076,12 @@ export default function App() {
   const handleUpdateSettings = async (newSettings: AppSettings) => {
     if (!requireAdmin('Apenas o Administrador pode modificar as configurações.')) return;
     setSettings(newSettings);
+    if (newSettings.buttonColor !== undefined) {
+      setButtonColor(newSettings.buttonColor);
+    }
+    if (newSettings.divColor !== undefined) {
+      setDivColor(newSettings.divColor);
+    }
     deviceSyncService.pushStateUpdate({ settings: newSettings }, 'update_settings').catch(() => {});
     showToast('Configurações atualizadas com sucesso!');
     activityLogService.log({
