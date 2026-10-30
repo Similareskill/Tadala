@@ -48,18 +48,7 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
-  const {
-    backgroundStyle,
-    applyThemePreset,
-    saveBackgroundToCurrentTheme,
-    activeThemeId,
-    currentButtonColor,
-    currentDivColor,
-    getButtonGradient,
-    getButtonTextColor,
-    setButtonColor,
-    setDivColor,
-  } = useTheme();
+  const { backgroundStyle, applyThemePreset, saveBackgroundToCurrentTheme, activeThemeId, currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
 
   // Navigation tab state
   const [currentTab, setCurrentTab] = useState<TabType>('lista');
@@ -273,12 +262,6 @@ export default function App() {
       }
       if (partial.settings && typeof partial.settings === 'object') {
         setSettings((prev) => ({ ...prev, ...partial.settings }));
-        if (partial.settings.buttonColor !== undefined) {
-          setButtonColor(partial.settings.buttonColor);
-        }
-        if (partial.settings.divColor !== undefined) {
-          setDivColor(partial.settings.divColor);
-        }
       }
       if (partial.history !== undefined && Array.isArray(partial.history)) {
         setHistory(partial.history);
@@ -298,7 +281,6 @@ export default function App() {
     itemsService.seedInitialIfEmpty(INITIAL_ITEMS).catch(() => {});
 
     // 3. Firestore Listeners
-    // 3. Firestore Listeners (with automatic server fallback when Firestore encounters limits)
     const unsubItems = itemsService.subscribe(
       (firestoreItems) => {
         if (firestoreItems && firestoreItems.length > 0) {
@@ -314,41 +296,22 @@ export default function App() {
         }
       },
       (err) => {
-        console.warn('Real-time items sync notice (hydrating from central sync server):', err);
-        deviceSyncService.fetchStateFromServer();
+        console.warn('Real-time items sync notice:', err);
       }
     );
 
-    const unsubSettings = settingsService.subscribe(
-      (remoteSettings) => {
-        if (remoteSettings && remoteSettings.listName) {
-          setSettings(remoteSettings);
-          if (remoteSettings.buttonColor !== undefined) {
-            setButtonColor(remoteSettings.buttonColor);
-          }
-          if (remoteSettings.divColor !== undefined) {
-            setDivColor(remoteSettings.divColor);
-          }
-          deviceSyncService.pushStateUpdate({ settings: remoteSettings }, 'firestore_settings').catch(() => {});
-        }
-      },
-      (err) => {
-        console.warn('Real-time settings sync notice (hydrating from central sync server):', err);
-        deviceSyncService.fetchStateFromServer();
+    const unsubSettings = settingsService.subscribe((remoteSettings) => {
+      if (remoteSettings && remoteSettings.listName) {
+        setSettings(remoteSettings);
+        deviceSyncService.pushStateUpdate({ settings: remoteSettings }, 'firestore_settings').catch(() => {});
       }
-    );
+    });
 
-    const unsubHistory = historyService.subscribe(
-      (remoteHistory) => {
-        if (remoteHistory && remoteHistory.length > 0) {
-          setHistory(remoteHistory);
-        }
-      },
-      (err) => {
-        console.warn('Real-time history sync notice (hydrating from central sync server):', err);
-        deviceSyncService.fetchStateFromServer();
+    const unsubHistory = historyService.subscribe((remoteHistory) => {
+      if (remoteHistory && remoteHistory.length > 0) {
+        setHistory(remoteHistory);
       }
-    );
+    });
 
     return () => {
       unsubStatus();
@@ -1090,12 +1053,6 @@ export default function App() {
   const handleUpdateSettings = async (newSettings: AppSettings) => {
     if (!requireAdmin('Apenas o Administrador pode modificar as configurações.')) return;
     setSettings(newSettings);
-    if (newSettings.buttonColor !== undefined) {
-      setButtonColor(newSettings.buttonColor);
-    }
-    if (newSettings.divColor !== undefined) {
-      setDivColor(newSettings.divColor);
-    }
     deviceSyncService.pushStateUpdate({ settings: newSettings }, 'update_settings').catch(() => {});
     showToast('Configurações atualizadas com sucesso!');
     activityLogService.log({

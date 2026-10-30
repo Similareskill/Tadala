@@ -214,64 +214,69 @@ html:not([data-theme="light"]) .bg-indigo-50 {
   background-color: var(--custom-bg-header) !important;
 }
 
-/* Custom Button overrides across ALL pages */
-[data-has-custom-btn="true"] button:not(#theme-menu-popover *):not([data-no-custom-btn]):not(.btn-icon-only):not([aria-label="Menu"]):not([aria-label="Fechar"]),
-[data-has-custom-btn="true"] button.btn-custom-theme,
-[data-has-custom-btn="true"] button.btn-primary-action,
-[data-has-custom-btn="true"] .btn-primary-action,
-[data-has-custom-btn="true"] .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\],
-[data-has-custom-btn="true"] button.from-\[\#c5a059\],
-[data-has-custom-btn="true"] button.bg-\[\#2a14b4\],
-[data-has-custom-btn="true"] button.bg-\[\#4338ca\],
-[data-has-custom-btn="true"] button.bg-\[\#3b2fc4\],
-[data-has-custom-btn="true"] button.bg-emerald-600,
-[data-has-custom-btn="true"] button.bg-indigo-600,
-[data-has-custom-btn="true"] button.btn-apply-theme,
-[data-has-custom-btn="true"] button[type="submit"]:not(#theme-menu-popover *),
-[data-has-custom-btn="true"] [data-action-btn="true"],
-[data-has-custom-btn="true"] .btn-theme-target {
+/* Custom Button overrides across all pages */
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.btn-custom-theme,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.btn-primary-action,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) .btn-primary-action,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.from-\[\#c5a059\],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-\[\#2a14b4\],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-\[\#4338ca\],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-\[\#3b2fc4\],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-emerald-600,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-indigo-600,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.btn-apply-theme,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button[type="submit"],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) [data-action-btn="true"],
+[data-has-custom-btn="true"] :not(#theme-menu-popover) .btn-theme-target {
   background: var(--custom-btn-gradient, var(--custom-btn-color)) !important;
   color: var(--custom-btn-text) !important;
   border-color: rgba(255, 255, 255, 0.28) !important;
 }
 
-[data-has-custom-btn="true"] button:not(#theme-menu-popover *):not([data-no-custom-btn]):not(.btn-icon-only):not([aria-label="Menu"]):not([aria-label="Fechar"]) *:not(#theme-menu-popover *) {
-  color: var(--custom-btn-text) !important;
+[data-has-custom-btn="true"] :not(#theme-menu-popover) .bg-gradient-to-r.from-\[\#c5a059\].to-\[\#9e7d38\]:hover,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.from-\[\#c5a059\]:hover,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-\[\#2a14b4\]:hover,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button.bg-\[\#4338ca\]:hover,
+[data-has-custom-btn="true"] :not(#theme-menu-popover) button[type="submit"]:hover {
+  filter: brightness(1.1);
 }
 
-[data-has-custom-btn="true"] button:not(#theme-menu-popover *):not([data-no-custom-btn]):not(.btn-icon-only):hover,
-[data-has-custom-btn="true"] button[type="submit"]:not(#theme-menu-popover *):hover {
-  filter: brightness(1.12);
-}
-
-/* Custom Div / Cards / Panels overrides across ALL pages */
-[data-has-custom-div="true"] div[class*="rounded-2xl"][class*="border"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="rounded-3xl"][class*="border"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="rounded-xl"][class*="border"]:not(#theme-menu-popover *):not([data-no-custom-div]):not([data-stat-pip]),
-[data-has-custom-div="true"] div[class*="bg-[#0e131e]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#0f131d]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#101522]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#131826]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#171f2f]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#121624]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#0c1018]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#0d121c]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#1c2438]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#1e2638]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#181f2c]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#141a29]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#080b13]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#070a10]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#090d15]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-white"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#f8fafc]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#faf8ff]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
-[data-has-custom-div="true"] div[class*="bg-[#f1f5f9]"]:not(#theme-menu-popover *):not([data-no-custom-div]),
+/* Custom Div / Cards / Panels overrides across all pages */
+[data-has-custom-div="true"] :not(#theme-menu-popover).bg-\[\#0e131e\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#0e131e\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#0f131d\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#0c1018\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#0d121c\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#101522\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#131826\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#171f2f\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#1c2438\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#111726\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#1e2638\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#121624\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#080b13\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#070a10\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#090d15\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#181f2c\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#141a29\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-white,
+[data-has-custom-div="true"] :not(#theme-menu-popover).dark .bg-white,
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#f8fafc\],
+[data-has-custom-div="true"] :not(#theme-menu-popover).dark .bg-\[\#f8fafc\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#faf8ff\],
+[data-has-custom-div="true"] :not(#theme-menu-popover).dark .bg-\[\#faf8ff\],
+[data-has-custom-div="true"] :not(#theme-menu-popover) .bg-\[\#f1f5f9\],
+[data-has-custom-div="true"] :not(#theme-menu-popover).dark .bg-\[\#f1f5f9\],
 [data-has-custom-div="true"] [data-card-surface],
 [data-has-custom-div="true"] .card-surface,
 [data-has-custom-div="true"] .group.relative.bg-\[\#0e131e\]\/90,
-[data-has-custom-div="true"] main div.rounded-2xl.border:not([data-no-custom-div]):not(#theme-menu-popover *),
-[data-has-custom-div="true"] main div.rounded-3xl.border:not([data-no-custom-div]):not(#theme-menu-popover *) {
+[data-has-custom-div="true"] div[class*="bg-[#0e131e]"],
+[data-has-custom-div="true"] div[class*="bg-[#0f131d]"],
+[data-has-custom-div="true"] div[class*="bg-[#101522]"],
+[data-has-custom-div="true"] div[class*="bg-[#131826]"],
+[data-has-custom-div="true"] main div.rounded-2xl.border:not([data-no-custom-div]):not(#theme-menu-popover),
+[data-has-custom-div="true"] main div.rounded-3xl.border:not([data-no-custom-div]):not(#theme-menu-popover) {
   background-color: var(--custom-div-bg) !important;
   border-color: var(--custom-div-border) !important;
 }

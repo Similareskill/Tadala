@@ -167,25 +167,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         {/* Dark / Light Theme Toggle Button */}
         <ThemeToggleButton size="md" />
 
-        {/* Live Multi-Device Sync Indicator */}
-        <button
-          type="button"
-          onClick={onOpenShareModal}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#0f1422] hover:bg-[#151c2e] border border-[#242e44] text-xs font-bold transition-all cursor-pointer shadow-xs select-none"
-          title={`Sincronização Global Ativa: ${connectedDevices} ${connectedDevices === 1 ? 'aparelho conectado' : 'aparelhos conectados'}. Latência: ${latencyMs}ms. Clique para ver status, QR Code e conectar celular.`}
-        >
-          <span className="relative flex h-2 w-2">
-            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${syncStatus === 'syncing' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
-            <span className={`relative inline-flex rounded-full h-2 w-2 ${syncStatus === 'syncing' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-          </span>
-          <Wifi className="w-3.5 h-3.5 text-[#c5a059]" />
-          <span className="hidden md:inline text-[11px] font-bold text-[#f3e8c7] font-cinzel">
-            {connectedDevices} {connectedDevices === 1 ? 'Aparelho' : 'Aparelhos'}
-          </span>
-          <span className="hidden xl:inline text-[9px] font-mono bg-[#1a2336] text-[#c5a059] px-1.5 py-0.2 rounded border border-[#2d3a54]">
-            {latencyMs}ms
-          </span>
-        </button>
 
         {/* Device Profile / User Badge */}
         <div className="flex items-center gap-1.5 pl-1 border-l border-[#e2e8f0] dark:border-[#222b3e]">

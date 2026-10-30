@@ -199,16 +199,13 @@ class DeviceSyncService {
   }
 
   public initConnection() {
-    // 1. Instantly fetch authoritative state from server (< 10ms)
-    this.fetchStateFromServer();
-
-    // 2. Connect Local WebSocket / Server (Fast sub-millisecond transmission in same environment)
+    // 1. Connect Local WebSocket / Server (Fast sub-millisecond transmission in same environment)
     this.connectLocalWebSocket();
 
-    // 3. Connect Global Cross-Network Mesh Relay (Guaranteed transmission across different Wi-Fi, 4G, and mobile networks)
+    // 2. Connect Global Cross-Network Mesh Relay (Guaranteed transmission across different Wi-Fi, 4G, and mobile networks)
     this.connectGlobalRelay();
 
-    // 4. Hydrate latest state snapshot from global relay cache
+    // 3. Hydrate latest state snapshot from global relay cache
     this.hydrateFromGlobalRelayCache();
 
     // 4. Start heartbeat & peer discovery
@@ -305,32 +302,12 @@ class DeviceSyncService {
       this.localEventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'INIT' && data.payload) {
-            this.handleRemoteState(data.payload, 'sse-init', data.version);
-          } else if (data.type === 'SYNC_UPDATE' && data.payload && data.sourceDevice !== this.deviceId) {
+          if (data.type === 'SYNC_UPDATE' && data.payload && data.sourceDevice !== this.deviceId) {
             this.handleRemoteState(data.payload, 'sse-fallback', data.version);
           }
         } catch {}
       };
     } catch {}
-  }
-
-  public async fetchStateFromServer(): Promise<boolean> {
-    try {
-      const res = await fetch(`/api/sync?device=${encodeURIComponent(this.deviceId)}`, {
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && typeof data === 'object') {
-          this.handleRemoteState(data, 'server_init_fetch', data.version);
-          return true;
-        }
-      }
-    } catch (e) {
-      console.warn('Server sync fetch notice:', e);
-    }
-    return false;
   }
 
   // --- GLOBAL CROSS-NETWORK MESH RELAY (Works on 4G, 5G, and different Wi-Fi networks worldwide) ---
@@ -353,63 +330,48 @@ class DeviceSyncService {
         this.sendPeerHeartbeat();
       };
 
-      this.globalWs.onmessage = async (event) => {
+      this.globalWs.onmessage = (event) => {
         try {
           if (typeof event.data !== 'string') return;
           const trimmedRaw = event.data.trim();
           if (!trimmedRaw.startsWith('{') || !trimmedRaw.endsWith('}')) return;
           const data = JSON.parse(trimmedRaw);
-          if (data.event === 'message') {
-            // 1. If payload was uploaded by ntfy as an attachment (> 4KB)
-            if (data.attachment && data.attachment.url) {
-              try {
-                const attachRes = await fetch(data.attachment.url);
-                if (attachRes.ok) {
-                  const attachJson = await attachRes.json();
-                  if (attachJson && attachJson.type === 'GLOBAL_SYNC_STATE' && attachJson.payload && attachJson.sourceDevice !== this.deviceId) {
-                    this.recordPeerActivity(attachJson.sourceDevice);
-                    this.handleRemoteState(attachJson.payload, 'global-relay-attachment', attachJson.version);
-                  }
+          if (data.event === 'message' && typeof data.message === 'string') {
+            const trimmed = data.message.trim();
+            if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return;
+
+            let msgObj: any;
+            try {
+              msgObj = JSON.parse(trimmed);
+            } catch {
+              return;
+            }
+
+            if (!msgObj || typeof msgObj !== 'object') return;
+
+            // Handle peer heartbeat to track devices across all networks and countries
+            if (msgObj.type === 'PEER_PING' && msgObj.deviceId) {
+              this.recordPeerActivity(msgObj.deviceId, msgObj.name, msgObj.network, msgObj.region);
+              return;
+            }
+
+            // Handle state sync broadcast
+            if (msgObj.type === 'GLOBAL_SYNC_STATE' && msgObj.payload) {
+              if (msgObj.sourceDevice !== this.deviceId) {
+                if (msgObj.timestamp) {
+                  const rtt = Math.max(1, Date.now() - msgObj.timestamp);
+                  this.latencyMs = Math.min(rtt, 65);
                 }
-              } catch (err) {
-                console.warn('Error fetching relay attachment:', err);
+                this.recordPeerActivity(msgObj.sourceDevice);
+                this.handleRemoteState(msgObj.payload, 'global-relay-ws', msgObj.version);
               }
               return;
             }
 
-            // 2. Direct inline JSON string (< 4KB)
-            if (typeof data.message === 'string') {
-              const trimmed = data.message.trim();
-              if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-                let msgObj: any;
-                try {
-                  msgObj = JSON.parse(trimmed);
-                } catch {
-                  return;
-                }
-
-                if (!msgObj || typeof msgObj !== 'object') return;
-
-                if (msgObj.type === 'PEER_PING' && msgObj.deviceId) {
-                  this.recordPeerActivity(msgObj.deviceId, msgObj.name, msgObj.network, msgObj.region);
-                  return;
-                }
-
-                if (msgObj.type === 'GLOBAL_SYNC_STATE' && msgObj.payload && msgObj.sourceDevice !== this.deviceId) {
-                  if (msgObj.timestamp) {
-                    const rtt = Math.max(1, Date.now() - msgObj.timestamp);
-                    this.latencyMs = Math.min(rtt, 65);
-                  }
-                  this.recordPeerActivity(msgObj.sourceDevice);
-                  this.handleRemoteState(msgObj.payload, 'global-relay-ws', msgObj.version);
-                  return;
-                }
-
-                if (msgObj.type === 'REQUEST_PEER_STATE' && msgObj.requesterId !== this.deviceId) {
-                  if (this.latestCachedState) {
-                    this.pushStateUpdate(this.latestCachedState, 'peer_hydration_reply').catch(() => {});
-                  }
-                }
+            // Handle request for full state from newly connected phone/device
+            if (msgObj.type === 'REQUEST_PEER_STATE' && msgObj.requesterId !== this.deviceId) {
+              if (this.latestCachedState) {
+                this.pushStateUpdate(this.latestCachedState, 'peer_hydration_reply').catch(() => {});
               }
             }
           }
@@ -447,40 +409,24 @@ class DeviceSyncService {
       const sseUrl = `https://ntfy.sh/${this.relayTopic}/sse`;
       this.globalEventSource = new EventSource(sseUrl);
 
-      this.globalEventSource.onmessage = async (event) => {
+      this.globalEventSource.onmessage = (event) => {
         try {
           if (typeof event.data !== 'string') return;
           const trimmedRaw = event.data.trim();
           if (!trimmedRaw.startsWith('{') || !trimmedRaw.endsWith('}')) return;
           const data = JSON.parse(trimmedRaw);
-          if (data.event === 'message') {
-            if (data.attachment && data.attachment.url) {
+          if (data.event === 'message' && typeof data.message === 'string') {
+            const trimmed = data.message.trim();
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
               try {
-                const attachRes = await fetch(data.attachment.url);
-                if (attachRes.ok) {
-                  const attachJson = await attachRes.json();
-                  if (attachJson && attachJson.type === 'GLOBAL_SYNC_STATE' && attachJson.payload && attachJson.sourceDevice !== this.deviceId) {
-                    this.recordPeerActivity(attachJson.sourceDevice);
-                    this.handleRemoteState(attachJson.payload, 'global-relay-sse-attachment', attachJson.version);
-                  }
+                const msgObj = JSON.parse(trimmed);
+                if (msgObj.type === 'PEER_PING' && msgObj.deviceId) {
+                  this.recordPeerActivity(msgObj.deviceId, msgObj.name, msgObj.network, msgObj.region);
+                } else if (msgObj.type === 'GLOBAL_SYNC_STATE' && msgObj.payload && msgObj.sourceDevice !== this.deviceId) {
+                  this.recordPeerActivity(msgObj.sourceDevice);
+                  this.handleRemoteState(msgObj.payload, 'global-relay-sse', msgObj.version);
                 }
               } catch {}
-              return;
-            }
-
-            if (typeof data.message === 'string') {
-              const trimmed = data.message.trim();
-              if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-                try {
-                  const msgObj = JSON.parse(trimmed);
-                  if (msgObj.type === 'PEER_PING' && msgObj.deviceId) {
-                    this.recordPeerActivity(msgObj.deviceId, msgObj.name, msgObj.network, msgObj.region);
-                  } else if (msgObj.type === 'GLOBAL_SYNC_STATE' && msgObj.payload && msgObj.sourceDevice !== this.deviceId) {
-                    this.recordPeerActivity(msgObj.sourceDevice);
-                    this.handleRemoteState(msgObj.payload, 'global-relay-sse', msgObj.version);
-                  }
-                } catch {}
-              }
             }
           }
         } catch {}
@@ -496,32 +442,19 @@ class DeviceSyncService {
       if (res.ok) {
         const text = await res.text();
         const lines = text.trim().split('\n');
-        // Search backwards for the latest state message or attachment
+        // Search backwards for the latest state message
         for (let i = lines.length - 1; i >= 0; i--) {
           try {
             const line = lines[i].trim();
             if (!line.startsWith('{') || !line.endsWith('}')) continue;
             const parsed = JSON.parse(line);
-            if (parsed.event === 'message') {
-              if (parsed.attachment && parsed.attachment.url) {
-                try {
-                  const attachRes = await fetch(parsed.attachment.url);
-                  if (attachRes.ok) {
-                    const attachJson = await attachRes.json();
-                    if (attachJson && attachJson.type === 'GLOBAL_SYNC_STATE' && attachJson.payload) {
-                      this.handleRemoteState(attachJson.payload, 'global-cached-attachment', attachJson.version);
-                      break;
-                    }
-                  }
-                } catch {}
-              } else if (parsed.message && typeof parsed.message === 'string') {
-                const msgTrimmed = parsed.message.trim();
-                if (msgTrimmed.startsWith('{') && msgTrimmed.endsWith('}')) {
-                  const msg = JSON.parse(msgTrimmed);
-                  if (msg.type === 'GLOBAL_SYNC_STATE' && msg.payload) {
-                    this.handleRemoteState(msg.payload, 'global-cached-snapshot', msg.version);
-                    break;
-                  }
+            if (parsed.event === 'message' && parsed.message && typeof parsed.message === 'string') {
+              const msgTrimmed = parsed.message.trim();
+              if (msgTrimmed.startsWith('{') && msgTrimmed.endsWith('}')) {
+                const msg = JSON.parse(msgTrimmed);
+                if (msg.type === 'GLOBAL_SYNC_STATE' && msg.payload) {
+                  this.handleRemoteState(msg.payload, 'global-cached-snapshot', msg.version);
+                  break;
                 }
               }
             }

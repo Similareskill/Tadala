@@ -1,9 +1,20 @@
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  writeBatch,
+  getDocs,
+  Unsubscribe,
+} from 'firebase/firestore';
+import { db } from './firebase';
 import { ActivityLogEntry } from '../types/shopping';
+import { executeSafeFirestoreWrite } from '../utils/firestoreErrorHandler';
 import { deviceSyncService } from './deviceSyncService';
 
-type Unsubscribe = () => void;
-
 const ACTIVITY_STORAGE_KEY = 'shopping_activity_logs_v1';
+export const ACTIVITY_COLLECTION = 'activity_logs';
 
 const INITIAL_LOGS: ActivityLogEntry[] = [
   {
@@ -75,19 +86,6 @@ function saveLocalLogs(logs: ActivityLogEntry[]) {
 let cachedLogs: ActivityLogEntry[] = loadLocalLogs();
 const memoryListeners: Set<(logs: ActivityLogEntry[]) => void> = new Set();
 
-// Connect activityLogService to central multi-device sync
-deviceSyncService.subscribe((partial) => {
-  if (partial.activityLogs !== undefined && Array.isArray(partial.activityLogs)) {
-    cachedLogs = partial.activityLogs;
-    saveLocalLogs(partial.activityLogs);
-    memoryListeners.forEach((fn) => {
-      try {
-        fn(partial.activityLogs!);
-      } catch {}
-    });
-  }
-});
-
 function broadcastLogs(logs: ActivityLogEntry[]) {
   cachedLogs = logs;
   saveLocalLogs(logs);
@@ -108,12 +106,49 @@ export const activityLogService = {
 
   subscribe(
     onUpdate: (logs: ActivityLogEntry[]) => void,
-    _onError?: (err: Error) => void
+    onError?: (err: Error) => void
   ): Unsubscribe {
     memoryListeners.add(onUpdate);
     onUpdate([...cachedLogs]);
+
+    let firestoreUnsub: Unsubscribe | null = null;
+    try {
+      const colRef = collection(db, ACTIVITY_COLLECTION);
+      firestoreUnsub = onSnapshot(
+        colRef,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: ActivityLogEntry[] = [];
+            snapshot.forEach((d) => {
+              const data = d.data() as ActivityLogEntry;
+              list.push({
+                ...data,
+                id: d.id,
+              });
+            });
+            list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            broadcastLogs(list);
+          } else {
+            // If empty in Firestore, write initial seeds
+            if (cachedLogs.length === 0) {
+              broadcastLogs(INITIAL_LOGS);
+            }
+          }
+        },
+        (err) => {
+          console.warn('Activity logs Firestore snapshot notice:', err);
+          if (onError) onError(err);
+        }
+      );
+    } catch (e) {
+      console.warn('Could not establish Firestore subscription for activity logs:', e);
+    }
+
     return () => {
       memoryListeners.delete(onUpdate);
+      if (firestoreUnsub) {
+        firestoreUnsub();
+      }
     };
   },
 
@@ -138,9 +173,28 @@ export const activityLogService = {
 
     const nextLogs = [newLog, ...cachedLogs.filter((l) => l.id !== newLog.id)].slice(0, 200);
     broadcastLogs(nextLogs);
+
+    // Sync to Firestore
+    executeSafeFirestoreWrite(async () => {
+      const docRef = doc(db, ACTIVITY_COLLECTION, newLog.id);
+      const cleanData: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(newLog)) {
+        if (v !== undefined) cleanData[k] = v;
+      }
+      await setDoc(docRef, cleanData);
+    }, 'addActivityLog');
   },
 
   async clearLogs(): Promise<void> {
     broadcastLogs([]);
+    await executeSafeFirestoreWrite(async () => {
+      const colRef = collection(db, ACTIVITY_COLLECTION);
+      const snap = await getDocs(colRef);
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        snap.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    }, 'clearActivityLogs');
   },
 };
