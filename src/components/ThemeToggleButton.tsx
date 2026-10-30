@@ -199,7 +199,21 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
             </div>
             <span className="font-semibold text-xs text-inherit">Cores & Tema</span>
           </div>
-          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
+            {currentButtonColor && (
+              <span
+                className="w-3 h-3 rounded-full border border-white/40 shadow-xs"
+                style={{ backgroundColor: currentButtonColor }}
+                title="Cor dos botões ativa"
+              />
+            )}
+            {currentDivColor && (
+              <span
+                className="w-3 h-3 rounded-full border border-white/40 shadow-xs"
+                style={{ backgroundColor: currentDivColor }}
+                title="Cor das divs ativa"
+              />
+            )}
             {currentTextColor && (
               <span
                 className="w-3 h-3 rounded-full border border-white/40 shadow-xs"
@@ -240,14 +254,24 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
                 className="w-2 h-2 rounded-full border border-black/20 shadow-2xs"
                 style={{
                   backgroundColor:
+                    currentButtonColor ||
                     THEME_PRESETS.find((p) => p.id === activeThemeId)?.accent ||
                     (isDark ? '#4338ca' : '#2a14b4'),
                 }}
+                title="Botões"
               />
-              {currentTextColor && (
+              {currentDivColor && (
                 <span
                   className="w-2 h-2 rounded-full border border-black/20 shadow-2xs z-1"
+                  style={{ backgroundColor: currentDivColor }}
+                  title="Divs"
+                />
+              )}
+              {currentTextColor && (
+                <span
+                  className="w-2 h-2 rounded-full border border-black/20 shadow-2xs z-2"
                   style={{ backgroundColor: currentTextColor }}
+                  title="Letras"
                 />
               )}
             </span>
@@ -259,6 +283,9 @@ export const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
       {isOpen && (
         <div
           ref={menuRef}
+          id="theme-menu-popover"
+          data-no-custom-btn="true"
+          data-no-custom-div="true"
           className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-[#131826] rounded-3xl shadow-2xl border border-[#e2e8f0] dark:border-[#2a3449] p-4 z-50 animate-in fade-in zoom-in-95 duration-150 text-[#131b2e] dark:text-[#f1f5f9]"
           style={{ maxHeight: '85vh', overflowY: 'auto' }}
         >
