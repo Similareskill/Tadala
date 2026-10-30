@@ -332,7 +332,10 @@ class DeviceSyncService {
 
       this.globalWs.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          if (typeof event.data !== 'string') return;
+          const trimmedRaw = event.data.trim();
+          if (!trimmedRaw.startsWith('{') || !trimmedRaw.endsWith('}')) return;
+          const data = JSON.parse(trimmedRaw);
           if (data.event === 'message' && typeof data.message === 'string') {
             const trimmed = data.message.trim();
             if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return;
@@ -408,7 +411,10 @@ class DeviceSyncService {
 
       this.globalEventSource.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          if (typeof event.data !== 'string') return;
+          const trimmedRaw = event.data.trim();
+          if (!trimmedRaw.startsWith('{') || !trimmedRaw.endsWith('}')) return;
+          const data = JSON.parse(trimmedRaw);
           if (data.event === 'message' && typeof data.message === 'string') {
             const trimmed = data.message.trim();
             if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
@@ -439,12 +445,17 @@ class DeviceSyncService {
         // Search backwards for the latest state message
         for (let i = lines.length - 1; i >= 0; i--) {
           try {
-            const parsed = JSON.parse(lines[i]);
-            if (parsed.event === 'message' && parsed.message) {
-              const msg = JSON.parse(parsed.message);
-              if (msg.type === 'GLOBAL_SYNC_STATE' && msg.payload) {
-                this.handleRemoteState(msg.payload, 'global-cached-snapshot', msg.version);
-                break;
+            const line = lines[i].trim();
+            if (!line.startsWith('{') || !line.endsWith('}')) continue;
+            const parsed = JSON.parse(line);
+            if (parsed.event === 'message' && parsed.message && typeof parsed.message === 'string') {
+              const msgTrimmed = parsed.message.trim();
+              if (msgTrimmed.startsWith('{') && msgTrimmed.endsWith('}')) {
+                const msg = JSON.parse(msgTrimmed);
+                if (msg.type === 'GLOBAL_SYNC_STATE' && msg.payload) {
+                  this.handleRemoteState(msg.payload, 'global-cached-snapshot', msg.version);
+                  break;
+                }
               }
             }
           } catch {}
