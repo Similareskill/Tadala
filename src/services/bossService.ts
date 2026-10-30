@@ -1,49 +1,21 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  onSnapshot,
-  Unsubscribe,
-  getDocs,
-  getDoc,
-  writeBatch,
-} from 'firebase/firestore';
-import { db } from './firebase';
 import { BossEvent, BossCheckin, UserRankEntry } from '../types/shopping';
-import {
-  isQuotaExceededError,
-  notifyQuotaExceeded,
-  executeSafeFirestoreWrite,
-} from '../utils/firestoreErrorHandler';
 import { deviceSyncService } from './deviceSyncService';
 
-const BOSS_EVENTS_COLLECTION = 'boss_events';
-const BOSS_CHECKINS_COLLECTION = 'boss_checkins';
-const SYSTEM_COLLECTION = 'system_config';
-const BOSS_META_DOC = 'boss_sync_state';
+type Unsubscribe = () => void;
+
 const LOCAL_STORAGE_BOSSES = 'craft_boss_events_data';
 const LOCAL_STORAGE_CHECKINS = 'craft_boss_checkins_data';
-const BOSSES_INITIALIZED_KEY = 'craft_bosses_initialized';
+const REMOVED_AUTO_CHECKINS_KEY = 'craft_removed_auto_checkins';
 const SEASON_RESET_KEY = 'craft_checkins_season_cleared';
 
-// Clean object to strip undefined fields which Firestore rejects
-export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
-  const result: Record<string, any> = {};
-  for (const [key, val] of Object.entries(obj)) {
-    if (val !== undefined) {
-      result[key] = val;
-    }
-  }
-  return result;
-}
-
-// Active multi-device listeners
+// Multi-device listeners
 const bossListeners: Set<(events: BossEvent[]) => void> = new Set();
 const checkinListeners: Set<(checkins: BossCheckin[]) => void> = new Set();
 
-function notifyBossListeners(events: BossEvent[]) {
-  deviceSyncService.pushStateUpdate({ bossEvents: events }, 'boss_events_update').catch(() => {});
+function notifyBossListeners(events: BossEvent[], emitNetwork: boolean = true) {
+  if (emitNetwork) {
+    deviceSyncService.pushStateUpdate({ bossEvents: events }, 'boss_events_update').catch(() => {});
+  }
   bossListeners.forEach((listener) => {
     try {
       listener(events);
@@ -53,8 +25,10 @@ function notifyBossListeners(events: BossEvent[]) {
   });
 }
 
-function notifyCheckinListeners(checkins: BossCheckin[]) {
-  deviceSyncService.pushStateUpdate({ checkins }, 'boss_checkins_update').catch(() => {});
+function notifyCheckinListeners(checkins: BossCheckin[], emitNetwork: boolean = true) {
+  if (emitNetwork) {
+    deviceSyncService.pushStateUpdate({ checkins }, 'boss_checkins_update').catch(() => {});
+  }
   checkinListeners.forEach((listener) => {
     try {
       listener(checkins);
@@ -64,13 +38,13 @@ function notifyCheckinListeners(checkins: BossCheckin[]) {
   });
 }
 
-// Initial preset Boss events (including an active one open right now so check-in can be tested immediately!)
+// Initial preset Boss events
 const now = Date.now();
 export const INITIAL_BOSS_EVENTS: BossEvent[] = [
   {
     id: 'boss-1',
     bossName: 'Baltazar',
-    scheduledTime: new Date(now - 15 * 60 * 1000).toISOString(), // Started 15 min ago -> check-in active for ~45 min more!
+    scheduledTime: new Date(now - 15 * 60 * 1000).toISOString(),
     points: 5,
     description: 'Spawn na Fortaleza da Guilda. Recompensa itens de forja épicos.',
     category: 'Boss de Guilda',
@@ -80,7 +54,7 @@ export const INITIAL_BOSS_EVENTS: BossEvent[] = [
   {
     id: 'boss-2',
     bossName: 'Global',
-    scheduledTime: new Date(now + 45 * 60 * 1000).toISOString(), // In 45 min
+    scheduledTime: new Date(now + 45 * 60 * 1000).toISOString(),
     points: 4,
     description: 'Spawn no mapa global. Todos os membros convocados.',
     category: 'Boss Global',
@@ -90,7 +64,7 @@ export const INITIAL_BOSS_EVENTS: BossEvent[] = [
   {
     id: 'boss-3',
     bossName: 'Damiros',
-    scheduledTime: new Date(now + 2 * 60 * 60 * 1000).toISOString(), // In 2 hours
+    scheduledTime: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
     points: 3,
     description: 'Boss de mapa aberto. Levar consumíveis de ataque.',
     category: 'Boss Global',
@@ -100,7 +74,7 @@ export const INITIAL_BOSS_EVENTS: BossEvent[] = [
   {
     id: 'boss-4',
     bossName: 'Cavaleiro',
-    scheduledTime: new Date(now - 3 * 60 * 60 * 1000).toISOString(), // Past boss
+    scheduledTime: new Date(now - 3 * 60 * 60 * 1000).toISOString(),
     points: 2,
     description: 'Monstro Elite derrotado.',
     category: 'Boss Global',
@@ -149,9 +123,7 @@ export const INITIAL_BOSS_EVENTS: BossEvent[] = [
   },
 ];
 
-// Automatic confirmation members: member Ella receives automatic confirmation in all check-ins
 export const AUTO_CONFIRM_MEMBERS: string[] = ['Ella'];
-const REMOVED_AUTO_CHECKINS_KEY = 'craft_removed_auto_checkins';
 
 export function isAutoConfirmMember(name?: string): boolean {
   if (!name) return false;
@@ -223,8 +195,7 @@ function saveLocalBosses(bosses: BossEvent[]) {
   } catch {}
 }
 
-let cachedBossEvents: BossEvent[] = [];
-let cachedCheckins: BossCheckin[] = [];
+let cachedBossEvents: BossEvent[] = getStoredLocalBosses();
 
 function syncAutoCheckinsInternal(
   bosses: BossEvent[],
@@ -240,7 +211,6 @@ function syncAutoCheckinsInternal(
     AUTO_CONFIRM_MEMBERS.forEach((member) => {
       const removedKey = `${boss.id}:${member.trim().toLowerCase()}`;
       if (removedKeys.includes(removedKey)) {
-        // Confirmation of auto-checkin was removed for this boss
         return;
       }
 
@@ -263,11 +233,6 @@ function syncAutoCheckinsInternal(
         };
         updated.push(autoCheckin);
         hasNew = true;
-
-        // Asynchronously persist to firestore safely without trigger retry storm if quota exceeded
-        executeSafeFirestoreWrite(async () => {
-          await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), autoCheckin);
-        }, `autoCheckin(${checkinId})`);
       }
     });
   });
@@ -301,8 +266,25 @@ function saveLocalCheckins(checkins: BossCheckin[]) {
   } catch {}
 }
 
+let cachedCheckins: BossCheckin[] = getStoredLocalCheckins();
+
+// Connect bossService to real-time sync service across devices
+deviceSyncService.subscribe((partial) => {
+  if (partial.bossEvents !== undefined && Array.isArray(partial.bossEvents)) {
+    cachedBossEvents = partial.bossEvents;
+    saveLocalBosses(partial.bossEvents);
+    notifyBossListeners(partial.bossEvents, false);
+  }
+
+  if (partial.checkins !== undefined && Array.isArray(partial.checkins)) {
+    const synced = syncAutoCheckinsInternal(cachedBossEvents, partial.checkins);
+    cachedCheckins = synced;
+    saveLocalCheckins(synced);
+    notifyCheckinListeners(synced, false);
+  }
+});
+
 export const bossService = {
-  // Retrieve instant stored data for 0ms initial render
   getInitialBossEvents(): BossEvent[] {
     return cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
   },
@@ -311,7 +293,6 @@ export const bossService = {
     return cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
   },
 
-  // Synchronize automatic check-ins for designated members (e.g. member Ella)
   syncAutoCheckins(
     bosses: BossEvent[],
     currentCheckins: BossCheckin[]
@@ -319,171 +300,38 @@ export const bossService = {
     return syncAutoCheckinsInternal(bosses, currentCheckins);
   },
 
-  // Subscribe to Boss Events
   subscribeBossEvents(
     onUpdate: (events: BossEvent[]) => void,
-    onError?: (err: Error) => void
+    _onError?: (err: Error) => void
   ): Unsubscribe {
     bossListeners.add(onUpdate);
-
-    // Initial emit from local / cache
     const initial = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     onUpdate(initial);
-
-    const colRef = collection(db, BOSS_EVENTS_COLLECTION);
-    const firestoreUnsub = onSnapshot(
-      colRef,
-      async (snapshot) => {
-        if (snapshot.empty) {
-          // Check local flag first to eliminate unnecessary network round-trips
-          let isInitialized = localStorage.getItem(BOSSES_INITIALIZED_KEY) === 'true';
-          if (!isInitialized) {
-            try {
-              const metaSnap = await getDoc(doc(db, SYSTEM_COLLECTION, BOSS_META_DOC));
-              if (metaSnap.exists()) {
-                isInitialized = true;
-              }
-            } catch {
-              isInitialized = false;
-            }
-          }
-
-          if (!isInitialized) {
-            // First time ever running the app across all devices: seed initial bosses once
-            const local = INITIAL_BOSS_EVENTS;
-            cachedBossEvents = local;
-            saveLocalBosses(local);
-            notifyBossListeners(local);
-            localStorage.setItem(BOSSES_INITIALIZED_KEY, 'true');
-            await executeSafeFirestoreWrite(async () => {
-              await setDoc(doc(db, SYSTEM_COLLECTION, BOSS_META_DOC), {
-                initialized: true,
-                seededAt: new Date().toISOString(),
-              });
-              const batch = writeBatch(db);
-              local.forEach((b) => {
-                const docRef = doc(db, BOSS_EVENTS_COLLECTION, b.id);
-                batch.set(docRef, sanitizeForFirestore(b));
-              });
-              await batch.commit();
-            }, 'seedInitialBosses');
-            this.syncAutoCheckins(local, cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
-            return;
-          }
-
-          // If already initialized and snapshot is empty, it means all bosses were deliberately removed!
-          cachedBossEvents = [];
-          saveLocalBosses([]);
-          notifyBossListeners([]);
-          return;
-        }
-
-        // We have documents from Firestore!
-        const events: BossEvent[] = [];
-        snapshot.forEach((d) => {
-          events.push({ ...(d.data() as BossEvent), id: d.id });
-        });
-
-        // Mark as initialized so other devices don't reseed
-        try {
-          localStorage.setItem(BOSSES_INITIALIZED_KEY, 'true');
-        } catch {}
-
-        // Sort by scheduledTime ascending (earliest first)
-        events.sort(
-          (a, b) =>
-            new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
-        );
-
-        cachedBossEvents = events;
-        saveLocalBosses(events);
-        notifyBossListeners(events);
-
-        // Ensure auto-checkin for member Ella is fulfilled for all received bosses
-        this.syncAutoCheckins(events, cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
-      },
-      (error) => {
-        console.warn('Firestore boss_events subscription fallback:', error);
-        const fallback = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
-        onUpdate(fallback);
-        if (onError) onError(error);
-      }
-    );
-
     return () => {
       bossListeners.delete(onUpdate);
-      firestoreUnsub();
     };
   },
 
-  // Subscribe to Checkins
   subscribeCheckins(
     onUpdate: (checkins: BossCheckin[]) => void,
-    onError?: (err: Error) => void
+    _onError?: (err: Error) => void
   ): Unsubscribe {
     checkinListeners.add(onUpdate);
-
-    // Initial emit from cache or local
     const initialCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
     const initialBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     const initialSynced = this.syncAutoCheckins(initialBosses, initialCheckins);
     onUpdate(initialSynced);
-
-    const colRef = collection(db, BOSS_CHECKINS_COLLECTION);
-    const firestoreUnsub = onSnapshot(
-      colRef,
-      (snapshot) => {
-        if (snapshot.empty) {
-          const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
-          const synced = this.syncAutoCheckins(activeBosses, []);
-          cachedCheckins = synced;
-          saveLocalCheckins(synced);
-          notifyCheckinListeners(synced);
-          return;
-        }
-
-        const checkins: BossCheckin[] = [];
-        snapshot.forEach((d) => {
-          checkins.push({ ...(d.data() as BossCheckin), id: d.id });
-        });
-
-        // Sort by checkedInAt descending
-        checkins.sort(
-          (a, b) =>
-            new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime()
-        );
-
-        const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
-        const synced = this.syncAutoCheckins(activeBosses, checkins);
-
-        cachedCheckins = synced;
-        saveLocalCheckins(synced);
-        notifyCheckinListeners(synced);
-      },
-      (error) => {
-        console.warn('Firestore boss_checkins subscription fallback:', error);
-        const fallbackCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
-        const activeBosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
-        const synced = this.syncAutoCheckins(activeBosses, fallbackCheckins);
-        onUpdate(synced);
-        if (onError) onError(error);
-      }
-    );
-
     return () => {
       checkinListeners.delete(onUpdate);
-      firestoreUnsub();
     };
   },
 
-  // Add a new Boss event (Admin feature)
   async addBossEvent(
     data: Omit<BossEvent, 'id' | 'createdAt'>
   ): Promise<BossEvent> {
     const id = `boss-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const clampedPoints = Math.min(100, Math.max(1, Math.round(Number(data.points) || 1)));
-    
-    // Construct valid boss object without any undefined fields
+
     const newBoss: BossEvent = {
       id,
       bossName: (data.bossName || '').trim() || 'Boss Sem Nome',
@@ -504,89 +352,49 @@ export const bossService = {
       newBoss.description = data.description;
     }
 
-    // 1. Save locally and update in-memory cache immediately
     const current = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     const updated = [newBoss, ...current.filter((b) => b.id !== id)];
     cachedBossEvents = updated;
     saveLocalBosses(updated);
-    notifyBossListeners(updated);
+    notifyBossListeners(updated, true);
 
-    // 2. Save to Firestore with sanitized data (never send undefined!)
-    await executeSafeFirestoreWrite(async () => {
-      const cleanData = sanitizeForFirestore(newBoss);
-      await setDoc(doc(db, BOSS_EVENTS_COLLECTION, id), cleanData);
-    }, `addBossEvent(${newBoss.bossName})`);
-
-    // 3. Immediately trigger auto-checkin for member Ella
-    this.syncAutoCheckins([newBoss], cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
+    const syncedCheckins = this.syncAutoCheckins([newBoss], cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins());
+    notifyCheckinListeners(syncedCheckins, true);
 
     return newBoss;
   },
 
-  // Delete a Boss event
   async deleteBossEvent(id: string): Promise<void> {
-    // 1. Update local cache and notify listeners immediately
     const current = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     const updated = current.filter((b) => b.id !== id);
     cachedBossEvents = updated;
     saveLocalBosses(updated);
-    notifyBossListeners(updated);
+    notifyBossListeners(updated, true);
 
-    // 2. Clean up local check-ins for this boss
     const allCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
-    const checkinsToDelete = allCheckins.filter((c) => c.bossId === id);
     const updatedCheckins = allCheckins.filter((c) => c.bossId !== id);
     cachedCheckins = updatedCheckins;
     saveLocalCheckins(updatedCheckins);
-    notifyCheckinListeners(updatedCheckins);
-
-    // 3. Delete boss document & check-ins in Firestore safely
-    await executeSafeFirestoreWrite(async () => {
-      await deleteDoc(doc(db, BOSS_EVENTS_COLLECTION, id));
-      if (checkinsToDelete.length > 0) {
-        const batch = writeBatch(db);
-        checkinsToDelete.forEach((c) => {
-          batch.delete(doc(db, BOSS_CHECKINS_COLLECTION, c.id));
-        });
-        await batch.commit();
-      }
-    }, `deleteBossEvent(${id})`);
+    notifyCheckinListeners(updatedCheckins, true);
   },
 
-  // Delete multiple Boss events in batch
   async deleteMultipleBossEvents(ids: string[]): Promise<void> {
     if (!ids || ids.length === 0) return;
     const idsSet = new Set(ids);
 
-    // 1. Update in-memory cache and localStorage immediately
     const current = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     const updated = current.filter((b) => !idsSet.has(b.id));
     cachedBossEvents = updated;
     saveLocalBosses(updated);
-    notifyBossListeners(updated);
+    notifyBossListeners(updated, true);
 
-    // 2. Clean up associated check-ins locally and in-memory
     const allCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
-    const checkinsToDelete = allCheckins.filter((c) => idsSet.has(c.bossId));
     const updatedCheckins = allCheckins.filter((c) => !idsSet.has(c.bossId));
     cachedCheckins = updatedCheckins;
     saveLocalCheckins(updatedCheckins);
-    notifyCheckinListeners(updatedCheckins);
-
-    // 3. Delete docs and associated check-ins from Firestore safely
-    await executeSafeFirestoreWrite(async () => {
-      const batch = writeBatch(db);
-      ids.forEach((id) => {
-        batch.delete(doc(db, BOSS_EVENTS_COLLECTION, id));
-      });
-      checkinsToDelete.forEach((c) => {
-        batch.delete(doc(db, BOSS_CHECKINS_COLLECTION, c.id));
-      });
-      await batch.commit();
-    }, `deleteMultipleBossEvents(${ids.length})`);
+    notifyCheckinListeners(updatedCheckins, true);
   },
 
-  // Delete a specific Check-in
   async deleteCheckin(checkinId: string, bossId?: string, userName?: string): Promise<void> {
     const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
     const target = all.find((c) => c.id === checkinId);
@@ -594,7 +402,6 @@ export const bossService = {
     const bId = bossId || target?.bossId;
     const uName = userName || target?.userName;
 
-    // If removing an auto-checkin member, mark it so sync won't recreate it for this boss
     if (bId && uName && isAutoConfirmMember(uName)) {
       markAutoCheckinRemoved(bId, uName);
     }
@@ -602,13 +409,9 @@ export const bossService = {
     const current = all.filter((c) => c.id !== checkinId);
     saveLocalCheckins(current);
     cachedCheckins = current;
-
-    await executeSafeFirestoreWrite(async () => {
-      await deleteDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId));
-    }, `deleteCheckin(${checkinId})`);
+    notifyCheckinListeners(current, true);
   },
 
-  // Remove confirmation of auto-checkin for a specific boss
   async removeAutoCheckinForBoss(bossId: string, memberName: string = 'Ella'): Promise<void> {
     markAutoCheckinRemoved(bossId, memberName);
     const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
@@ -623,32 +426,19 @@ export const bossService = {
     }
   },
 
-  // Remove confirmation of auto-checkin from ALL bosses
   async removeAllAutoCheckins(memberName: string = 'Ella'): Promise<void> {
     const bosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     bosses.forEach((b) => markAutoCheckinRemoved(b.id, memberName));
 
     const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
-    const toDelete = all.filter(
-      (c) => c.userName.trim().toLowerCase() === memberName.trim().toLowerCase()
-    );
-
     const remaining = all.filter(
       (c) => c.userName.trim().toLowerCase() !== memberName.trim().toLowerCase()
     );
     saveLocalCheckins(remaining);
     cachedCheckins = remaining;
-
-    await executeSafeFirestoreWrite(async () => {
-      const batch = writeBatch(db);
-      toDelete.forEach((c) => {
-        batch.delete(doc(db, BOSS_CHECKINS_COLLECTION, c.id));
-      });
-      await batch.commit();
-    }, 'removeAllAutoCheckins');
+    notifyCheckinListeners(remaining, true);
   },
 
-  // Restore/re-enable auto-checkin confirmation for a specific boss
   async restoreAutoCheckinForBoss(boss: BossEvent, memberName: string = 'Ella'): Promise<BossCheckin | null> {
     unmarkAutoCheckinRemoved(boss.id, memberName);
     const all = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
@@ -674,25 +464,20 @@ export const bossService = {
     const updated = [autoCheckin, ...all];
     saveLocalCheckins(updated);
     cachedCheckins = updated;
-
-    await executeSafeFirestoreWrite(async () => {
-      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), autoCheckin);
-    }, `restoreAutoCheckinForBoss(${checkinId})`);
+    notifyCheckinListeners(updated, true);
 
     return autoCheckin;
   },
 
-  // Restore/re-enable all auto-checkins
   async restoreAllAutoCheckins(memberName: string = 'Ella'): Promise<BossCheckin[]> {
     clearAllRemovedAutoCheckins();
     const bosses = cachedBossEvents.length > 0 ? cachedBossEvents : getStoredLocalBosses();
     const current = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
     const synced = this.syncAutoCheckins(bosses, current);
+    notifyCheckinListeners(synced, true);
     return synced;
   },
 
-  // Add bonus points (+3 pts) to all boss events and check-ins that are currently OPEN
-  // Add bonus points (+3 pts) across all open bosses and their already created check-ins
   async addBonusPointsToOpenCheckins(
     bonus: number = 3,
     overrideBosses?: BossEvent[],
@@ -716,24 +501,18 @@ export const bossService = {
     const openBossIds = new Set(openBosses.map((b) => b.id));
     const affectedBossNames: string[] = [];
 
-    // 1. Update points for open bosses in local storage and Firestore
     const updatedBosses = allBosses.map((b) => {
       if (openBossIds.has(b.id)) {
         affectedBossNames.push(b.bossName);
-        const newPts = (b.points || 0) + bonus;
-        const updated = { ...b, points: newPts };
-        executeSafeFirestoreWrite(async () => {
-          await setDoc(doc(db, BOSS_EVENTS_COLLECTION, b.id), updated);
-        }, `addBonusPointsToBoss(${b.id})`);
-        return updated;
+        return { ...b, points: (b.points || 0) + bonus };
       }
       return b;
     });
 
     saveLocalBosses(updatedBosses);
     cachedBossEvents = updatedBosses;
+    notifyBossListeners(updatedBosses, true);
 
-    // 2. Update points for all check-ins already created for these open bosses
     const allCheckins =
       overrideCheckins && overrideCheckins.length > 0
         ? overrideCheckins
@@ -742,22 +521,17 @@ export const bossService = {
         : getStoredLocalCheckins();
 
     let affectedCheckinsCount = 0;
-
     const updatedCheckins = allCheckins.map((chk) => {
       if (openBossIds.has(chk.bossId)) {
         affectedCheckinsCount++;
-        const newPts = (chk.points || 0) + bonus;
-        const updated = { ...chk, points: newPts };
-        executeSafeFirestoreWrite(async () => {
-          await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, chk.id), updated);
-        }, `addBonusPointsToCheckin(${chk.id})`);
-        return updated;
+        return { ...chk, points: (chk.points || 0) + bonus };
       }
       return chk;
     });
 
     saveLocalCheckins(updatedCheckins);
     cachedCheckins = updatedCheckins;
+    notifyCheckinListeners(updatedCheckins, true);
 
     return {
       affectedBossesCount: openBosses.length,
@@ -766,7 +540,6 @@ export const bossService = {
     };
   },
 
-  // Add bonus points (+3 pts) to a single specific open boss and its confirmed check-ins
   async addBonusPointsToSingleBoss(
     bossId: string,
     bonus: number = 3,
@@ -785,16 +558,12 @@ export const bossService = {
 
     const newPoints = (boss.points || 0) + bonus;
     const updatedBoss = { ...boss, points: newPoints };
-
     const updatedBosses = allBosses.map((b) => (b.id === bossId ? updatedBoss : b));
+
     saveLocalBosses(updatedBosses);
     cachedBossEvents = updatedBosses;
+    notifyBossListeners(updatedBosses, true);
 
-    executeSafeFirestoreWrite(async () => {
-      await setDoc(doc(db, BOSS_EVENTS_COLLECTION, bossId), updatedBoss);
-    }, `addBonusPointsToSingleBoss(${bossId})`);
-
-    // Update all check-ins already created for this boss
     const allCheckins =
       overrideCheckins && overrideCheckins.length > 0
         ? overrideCheckins
@@ -803,26 +572,21 @@ export const bossService = {
         : getStoredLocalCheckins();
 
     let checkinsCount = 0;
-
     const updatedCheckins = allCheckins.map((c) => {
       if (c.bossId === bossId) {
         checkinsCount++;
-        const updated = { ...c, points: (c.points || 0) + bonus };
-        executeSafeFirestoreWrite(async () => {
-          await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, c.id), updated);
-        }, `addBonusPointsToCheckin(${c.id})`);
-        return updated;
+        return { ...c, points: (c.points || 0) + bonus };
       }
       return c;
     });
 
     saveLocalCheckins(updatedCheckins);
     cachedCheckins = updatedCheckins;
+    notifyCheckinListeners(updatedCheckins, true);
 
     return { success: true, newPoints, bossName: boss.bossName, checkinsCount };
   },
 
-  // Add bonus points (+3 pts) to a single specific check-in
   async addBonusPointsToSingleCheckin(
     checkinId: string,
     bonus: number = 3,
@@ -844,15 +608,11 @@ export const bossService = {
 
     saveLocalCheckins(updatedCheckins);
     cachedCheckins = updatedCheckins;
-
-    executeSafeFirestoreWrite(async () => {
-      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), updated);
-    }, `addBonusPointsToSingleCheckin(${checkinId})`);
+    notifyCheckinListeners(updatedCheckins, true);
 
     return { success: true, newPoints, userName: chk.userName, bossName: chk.bossName };
   },
 
-  // Helper to determine the check-in window (manual or fallback)
   getCheckinWindowStatus(
     scheduledTime: string,
     checkinEndTime?: string,
@@ -862,13 +622,11 @@ export const bossService = {
       ? new Date(checkinStartTime).getTime()
       : new Date(scheduledTime).getTime();
 
-    // If manual end time is provided, use it; otherwise fallback to start + 1h
     const endMs = checkinEndTime
       ? new Date(checkinEndTime).getTime()
       : startMs + 60 * 60 * 1000;
 
     const currentMs = Date.now();
-
     const isUpcoming = currentMs < startMs;
     const isOpen = currentMs >= startMs && currentMs <= endMs;
     const isExpired = currentMs > endMs;
@@ -890,7 +648,6 @@ export const bossService = {
     };
   },
 
-  // Visitor check-in confirmation
   async confirmCheckin(
     boss: BossEvent,
     userName: string
@@ -919,7 +676,6 @@ export const bossService = {
       };
     }
 
-    // Check if user already confirmed for this boss
     const activeCheckins = cachedCheckins.length > 0 ? cachedCheckins : getStoredLocalCheckins();
     const alreadyDone = activeCheckins.some(
       (c) =>
@@ -944,26 +700,17 @@ export const bossService = {
       checkedInAt: new Date().toISOString(),
     };
 
-    // Save locally
     try {
       localStorage.removeItem(SEASON_RESET_KEY);
     } catch {}
     const updated = [newCheckin, ...activeCheckins];
     saveLocalCheckins(updated);
     cachedCheckins = updated;
-    notifyCheckinListeners(updated);
-
-    // Save to Firestore
-    executeSafeFirestoreWrite(async () => {
-      await setDoc(doc(db, BOSS_CHECKINS_COLLECTION, checkinId), sanitizeForFirestore(newCheckin));
-    }, `confirmCheckin(${checkinId})`);
+    notifyCheckinListeners(updated, true);
 
     return { success: true, checkin: newCheckin };
   },
 
-  // Calculate Rank de Pontos
-  // "O pontos total de cada pessoa vai aparecer em uma nova aba com nome Rank de Pontos,
-  // dentro dessa aba vai ter uma lista com o total de pontos e o nome de cada pessoa."
   computeRank(checkins: BossCheckin[]): UserRankEntry[] {
     const userMap = new Map<string, UserRankEntry>();
 
@@ -971,7 +718,7 @@ export const bossService = {
       const key = c.userName.toLowerCase();
       if (!userMap.has(key)) {
         userMap.set(key, {
-          userName: c.userName, // keep user casing
+          userName: c.userName,
           totalPoints: 0,
           totalCheckins: 0,
           checkins: [],
@@ -989,8 +736,6 @@ export const bossService = {
     });
 
     const rankList = Array.from(userMap.values());
-
-    // Sort descending by points, tie-break by total checkins desc
     rankList.sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) {
         return b.totalPoints - a.totalPoints;
@@ -1001,23 +746,13 @@ export const bossService = {
     return rankList;
   },
 
-  // Reset season / rank (Admin only)
   async resetAllCheckins(): Promise<void> {
     try {
       localStorage.setItem(SEASON_RESET_KEY, 'true');
     } catch {}
     saveLocalCheckins([]);
     cachedCheckins = [];
-    notifyCheckinListeners([]);
-
-    await executeSafeFirestoreWrite(async () => {
-      const snapshot = await getDocs(collection(db, BOSS_CHECKINS_COLLECTION));
-      if (!snapshot.empty) {
-        const batch = writeBatch(db);
-        snapshot.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
-      }
-    }, 'resetAllCheckins');
+    notifyCheckinListeners([], true);
   },
 };
 

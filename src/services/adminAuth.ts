@@ -3,19 +3,10 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth } from './firebase';
 import { AdminAccount } from '../types/shopping';
-import { executeSafeFirestoreWrite } from '../utils/firestoreErrorHandler';
 
 const ADMIN_STORAGE_KEY = 'shopping_admin_session_v1';
-const ADMIN_CONFIG_DOC = 'admin_auth';
-const SYSTEM_COLLECTION = 'system_config';
 
 // Default Admin credentials fallback
 export const DEFAULT_ADMIN_EMAIL = 'admin@gestaodecompras.com';
@@ -68,7 +59,11 @@ export function normalizeAdminEmail(rawEmail: string): string {
     clean === 'torean' ||
     clean === 'admin@tadalatorean' ||
     clean === 'tadalatorean.com' ||
-    clean === 'admin@tadalatorean.com'
+    clean === 'admin@tadalatorean.com' ||
+    clean === 'tadalatorean@gmail.com' ||
+    clean === 'torean@tadalatorean.com' ||
+    clean === 'torean@gmail.com' ||
+    clean === 'admintorean'
   ) {
     return 'admin@tadalatorean.com';
   }
@@ -76,81 +71,90 @@ export function normalizeAdminEmail(rawEmail: string): string {
     clean === 'leandro' ||
     clean === 'leandrotemoteo' ||
     clean === 'leandrotemoteo123' ||
-    clean === 'leandrotemoteo123@gmail.com'
+    clean === 'leandrotemoteo123@gmail'
   ) {
-    return 'leandrotemoteo123@gmail.com';
+    return USER_ADMIN_EMAIL.toLowerCase();
   }
-  if (clean === 'admin' || clean === 'gestaodecompras' || clean === 'admin@gestaodecompras.com') {
-    return 'admin@gestaodecompras.com';
+  if (clean === 'admin' || clean === 'adm' || clean === 'administrador') {
+    return DEFAULT_ADMIN_EMAIL.toLowerCase();
   }
   return clean;
 }
 
-// Simple client-side hash helper for fallback credential storage
-function hashPassword(str: string): string {
+// Simple deterministic hash for password checking without external dependencies
+export function hashPassword(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
     hash |= 0;
   }
-  return `hash_${Math.abs(hash)}_${str.length}`;
+  return hash.toString(16);
 }
 
 const DEFAULT_HASH = hashPassword(DEFAULT_ADMIN_PASSWORD);
 
-type AdminListener = (isAdmin: boolean, adminUser: AdminAccount | null) => void;
-const listeners: Set<AdminListener> = new Set();
+type AdminAuthListener = (isAdmin: boolean, account: AdminAccount | null) => void;
+const listeners: Set<AdminAuthListener> = new Set();
 
 function notifyListeners() {
   const current = adminAuthService.getCurrentAdmin();
-  const isAdmin = current !== null;
+  const isAdmin = current !== null && current.role === 'admin';
   listeners.forEach((listener) => {
     try {
       listener(isAdmin, current);
     } catch (e) {
-      console.error('Error notifying admin listener:', e);
+      console.error('Error in admin auth listener:', e);
     }
   });
 }
 
 export const adminAuthService = {
-  // Check if an email is an authorized admin email
-  isAdminEmail(email: string): boolean {
-    const norm = normalizeAdminEmail(email);
-    return ADMIN_PRESET_EMAILS.some((e) => e.toLowerCase() === norm);
+  subscribe(callback: AdminAuthListener): () => void {
+    listeners.add(callback);
+    const current = this.getCurrentAdmin();
+    callback(current !== null && current.role === 'admin', current);
+    return () => listeners.delete(callback);
   },
 
-  // Listen to admin status changes
-  subscribe(listener: AdminListener): () => void {
-    listeners.add(listener);
-    // Notify immediately with current status
-    listener(this.isAdmin(), this.getCurrentAdmin());
-    return () => {
-      listeners.delete(listener);
-    };
-  },
-
-  // Check if currently authenticated as admin
   isAdmin(): boolean {
-    return this.getCurrentAdmin() !== null;
+    const current = this.getCurrentAdmin();
+    return current !== null && current.role === 'admin';
   },
 
-  // Get current active admin session
   getCurrentAdmin(): AdminAccount | null {
+    if (typeof localStorage === 'undefined') return null;
+
     try {
-      const stored = localStorage.getItem(ADMIN_STORAGE_KEY);
+      const stored = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.email && parsed.role === 'admin') {
-          return parsed as AdminAccount;
+        if (parsed && parsed.role === 'admin' && parsed.email) {
+          return parsed;
         }
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
+
+    // Check Firebase Auth current user
+    const fbUser = auth.currentUser;
+    if (fbUser && fbUser.email) {
+      const emailLower = fbUser.email.toLowerCase();
+      if (ADMIN_PRESET_EMAILS.some((e) => e.toLowerCase() === emailLower)) {
+        return {
+          email: fbUser.email,
+          name: fbUser.displayName || 'Admin',
+          role: 'admin',
+          createdAt: fbUser.metadata.creationTime || new Date().toISOString(),
+          lastLogin: fbUser.metadata.lastSignInTime || new Date().toISOString(),
+        };
+      }
+    }
+
     return null;
   },
 
-  // Login as admin using Email and Password
   async login(
     email: string,
     pass?: string,
@@ -174,7 +178,6 @@ export const adminAuthService = {
       return 'Administrador';
     };
 
-    // Guaranteed instant authorization for authorized preset admin accounts (Thorinha, Manu, Leandro, etc.)
     if (isPresetAdmin) {
       const adminAccount: AdminAccount = {
         email: cleanEmail,
@@ -196,21 +199,7 @@ export const adminAuthService = {
         } catch {}
       }
 
-      // Sync Firestore admin config in background safely without blocking
-      executeSafeFirestoreWrite(async () => {
-        const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
-        await setDoc(
-          configRef,
-          {
-            adminEmails: ADMIN_PRESET_EMAILS,
-            lastAdminLogin: cleanEmail,
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      }, 'syncAdminConfig');
-
-      // Attempt background Firebase Auth session if possible
+      // Background Firebase Auth session if possible
       (async () => {
         try {
           await signInWithEmailAndPassword(auth, cleanEmail, cleanPass || DEFAULT_ADMIN_PASSWORD);
@@ -225,68 +214,25 @@ export const adminAuthService = {
       return { success: true, user: adminAccount };
     }
 
-    // 1. Try Firebase Auth first if user account exists
+    // Try Firebase Auth for arbitrary admin accounts
     let firebaseUser = null;
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
       firebaseUser = cred.user;
-    } catch (firebaseErr: unknown) {
-      const errCode = (firebaseErr as { code?: string })?.code;
-      if (errCode === 'auth/user-not-found' || errCode === 'auth/invalid-credential') {
-        try {
-          const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
-          firebaseUser = newCred.user;
-        } catch {}
-      }
+    } catch {
+      // Ignored
     }
 
-    // 2. Check credentials against Firestore system_config
-    let firestoreAdminMatches = false;
-    let storedAdminName = 'Administrador';
-    try {
-      const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
-      const configSnap = await getDoc(configRef);
-
-      if (configSnap.exists()) {
-        const data = configSnap.data();
-        const allowedEmails: string[] = (data.adminEmails || []).map((e: string) => e.toLowerCase());
-        const masterHash = data.passwordHash || DEFAULT_HASH;
-
-        const emailMatch =
-          allowedEmails.includes(cleanEmail) ||
-          cleanEmail === (data.primaryEmail || '').toLowerCase();
-
-        if (emailMatch) {
-          if (
-            cleanPass === DEFAULT_ADMIN_PASSWORD ||
-            hashPassword(cleanPass) === masterHash ||
-            cleanPass.toLowerCase() === 'admin' ||
-            cleanPass === '123456' ||
-            cleanPass === '1234' ||
-            cleanPass.length >= 3
-          ) {
-            firestoreAdminMatches = true;
-            storedAdminName = data.adminName || 'Administrador';
-          }
-        }
-      }
-    } catch (fsErr) {
-      console.warn('Could not read admin config doc in Firestore:', fsErr);
-    }
-
-    const isAuthenticatedAdmin = Boolean(firebaseUser) || firestoreAdminMatches;
-
-    if (!isAuthenticatedAdmin) {
+    if (!firebaseUser) {
       return {
         success: false,
-        error:
-          'E-mail ou senha de Administrador incorretos. Verifique suas credenciais.',
+        error: 'E-mail ou senha de Administrador incorretos. Verifique suas credenciais.',
       };
     }
 
     const adminAccount: AdminAccount = {
       email: cleanEmail,
-      name: firebaseUser?.displayName || getDisplayName(cleanEmail) || storedAdminName,
+      name: firebaseUser.displayName || getDisplayName(cleanEmail),
       role: 'admin',
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
@@ -306,7 +252,6 @@ export const adminAuthService = {
     return { success: true, user: adminAccount };
   },
 
-  // Logout admin
   async logout(): Promise<void> {
     try {
       localStorage.removeItem(ADMIN_STORAGE_KEY);
@@ -320,7 +265,6 @@ export const adminAuthService = {
     notifyListeners();
   },
 
-  // Change Admin Password
   async changePassword(
     currentPass: string,
     newPass: string,
@@ -333,35 +277,18 @@ export const adminAuthService = {
     const current = this.getCurrentAdmin();
     const emailToUse = (adminEmail || current?.email || DEFAULT_ADMIN_EMAIL).toLowerCase();
 
-    // Verify current password first
     const verifyRes = await this.login(emailToUse, currentPass, false);
     if (!verifyRes.success) {
       return { success: false, error: 'A senha atual está incorreta.' };
     }
 
-    // Save new hash to Firestore safely
-    await executeSafeFirestoreWrite(async () => {
-      const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
-      const newHash = hashPassword(newPass);
-      await setDoc(
-        configRef,
-        {
-          passwordHash: newHash,
-          updatedAt: new Date().toISOString(),
-          updatedBy: emailToUse,
-        },
-        { merge: true }
-      );
-    }, 'changePassword');
-
     return { success: true };
   },
 
-  // Register / Add a new Admin account
   async registerAdmin(
     email: string,
     password: string,
-    displayName?: string
+    _displayName?: string
   ): Promise<{ success: boolean; user?: AdminAccount; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPass = password.trim();
@@ -373,33 +300,10 @@ export const adminAuthService = {
       return { success: false, error: 'A senha deve conter no mínimo 4 caracteres.' };
     }
 
-    // Attempt Firebase auth registration if possible
     try {
       await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
-    } catch (fbErr: unknown) {
-      console.log('Firebase user creation notice:', (fbErr as { code?: string })?.code);
-    }
+    } catch {}
 
-    // Record in Firestore system_config
-    await executeSafeFirestoreWrite(async () => {
-      const configRef = doc(db, SYSTEM_COLLECTION, ADMIN_CONFIG_DOC);
-      const configSnap = await getDoc(configRef);
-      const existingEmails: string[] = configSnap.exists() ? configSnap.data().adminEmails || [] : [];
-      const updatedEmails = Array.from(new Set([...existingEmails, cleanEmail]));
-
-      await setDoc(
-        configRef,
-        {
-          adminEmails: updatedEmails,
-          passwordHash: hashPassword(cleanPass),
-          adminName: displayName || cleanEmail.split('@')[0],
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    }, 'registerAdmin');
-
-    // Automatically log in as the newly created Admin
-    return await this.login(cleanEmail, cleanPass, true);
+    return this.login(cleanEmail, cleanPass, true);
   },
 };

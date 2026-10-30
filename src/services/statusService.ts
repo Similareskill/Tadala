@@ -1,68 +1,10 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  onSnapshot,
-  Unsubscribe,
-  getDocs,
-  writeBatch,
-} from 'firebase/firestore';
-import { db, auth } from './firebase';
 import { MemberStatus } from '../types/shopping';
 import { deviceSyncService } from './deviceSyncService';
 
-const STATUSES_COLLECTION = 'member_statuses';
+type Unsubscribe = () => void;
+
 const LOCAL_STORAGE_KEY = 'guild_member_statuses_v1';
 
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-import {
-  isQuotaExceededError,
-  notifyQuotaExceeded,
-  executeSafeFirestoreWrite,
-} from '../utils/firestoreErrorHandler';
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-  };
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  if (isQuotaExceededError(error)) {
-    notifyQuotaExceeded();
-    console.warn(`[StatusService Offline] Cota diária do Firestore atingida em ${path}. Usando armazenamento local.`);
-    return;
-  }
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-    },
-    operationType,
-    path,
-  };
-  console.warn('Firestore Notice in statusService: ', JSON.stringify(errInfo));
-}
-
-// Initial demonstration statuses for the guild
 export const INITIAL_MEMBER_STATUSES: MemberStatus[] = [
   {
     id: 'status-ella',
@@ -136,84 +78,49 @@ function saveStoredLocal(list: MemberStatus[]) {
   } catch {}
 }
 
+let cachedStatuses: MemberStatus[] = getStoredLocal();
+const statusListeners: Set<(statuses: MemberStatus[]) => void> = new Set();
+
+// Connect statusService to central multi-device sync
+deviceSyncService.subscribe((partial) => {
+  if (partial.memberStatuses !== undefined && Array.isArray(partial.memberStatuses)) {
+    cachedStatuses = partial.memberStatuses;
+    saveStoredLocal(partial.memberStatuses);
+    statusListeners.forEach((fn) => {
+      try {
+        fn(partial.memberStatuses!);
+      } catch {}
+    });
+  }
+});
+
 export const statusService = {
   getInitialStatuses(): MemberStatus[] {
-    return getStoredLocal();
+    return cachedStatuses.length > 0 ? cachedStatuses : getStoredLocal();
   },
 
   subscribe(
     onUpdate: (statuses: MemberStatus[]) => void,
-    onError?: (err: unknown) => void
+    _onError?: (err: unknown) => void
   ): Unsubscribe {
-    // Initial immediate emit from local storage for 0ms load
-    onUpdate(getStoredLocal());
-
-    const colRef = collection(db, STATUSES_COLLECTION);
-
-    return onSnapshot(
-      colRef,
-      (snapshot) => {
-        if (snapshot.empty) {
-          // If Firestore is empty and not seeded yet, attempt once
-          const isSeeded = localStorage.getItem('guild_member_statuses_seeded_v1') === 'true';
-          if (!isSeeded) {
-            this.seedInitialIfEmpty();
-          }
-          const local = getStoredLocal();
-          onUpdate(local);
-          return;
-        }
-
-        const items: MemberStatus[] = [];
-        snapshot.forEach((d) => {
-          const data = d.data() as MemberStatus;
-          items.push({
-            ...data,
-            id: d.id,
-          });
-        });
-
-        // Sort descending by Power
-        items.sort((a, b) => (b.power || 0) - (a.power || 0));
-
-        saveStoredLocal(items);
-        onUpdate(items);
-      },
-      (error) => {
-        handleFirestoreError(error, OperationType.LIST, STATUSES_COLLECTION);
-        const fallback = getStoredLocal();
-        onUpdate(fallback);
-        if (onError) onError(error);
-      }
-    );
+    statusListeners.add(onUpdate);
+    onUpdate(cachedStatuses.length > 0 ? cachedStatuses : getStoredLocal());
+    return () => {
+      statusListeners.delete(onUpdate);
+    };
   },
 
   async seedInitialIfEmpty(): Promise<void> {
-    const SEEDED_KEY = 'guild_member_statuses_seeded_v1';
-    try {
-      if (localStorage.getItem(SEEDED_KEY) === 'true') {
-        return;
-      }
-      const colRef = collection(db, STATUSES_COLLECTION);
-      const snap = await getDocs(colRef);
-      if (snap.empty) {
-        const batch = writeBatch(db);
-        INITIAL_MEMBER_STATUSES.forEach((status) => {
-          const docRef = doc(db, STATUSES_COLLECTION, status.id);
-          batch.set(docRef, status);
-        });
-        await batch.commit();
-      }
-      localStorage.setItem(SEEDED_KEY, 'true');
-    } catch (e) {
-      localStorage.setItem(SEEDED_KEY, 'true');
-      handleFirestoreError(e, OperationType.WRITE, STATUSES_COLLECTION);
+    if (cachedStatuses.length === 0) {
+      cachedStatuses = INITIAL_MEMBER_STATUSES;
+      saveStoredLocal(INITIAL_MEMBER_STATUSES);
+      statusListeners.forEach((fn) => fn(INITIAL_MEMBER_STATUSES));
+      await deviceSyncService.pushStateUpdate({ memberStatuses: INITIAL_MEMBER_STATUSES }, 'seed_statuses');
     }
   },
 
   async saveStatus(status: MemberStatus): Promise<void> {
-    // Optimistic local update
-    const current = getStoredLocal();
+    const current = cachedStatuses.length > 0 ? [...cachedStatuses] : getStoredLocal();
     const existingIndex = current.findIndex(
       (s) => s.id === status.id || s.memberName.trim().toLowerCase() === status.memberName.trim().toLowerCase()
     );
@@ -234,53 +141,38 @@ export const statusService = {
     } else {
       current.push(updatedStatus);
     }
-    // Re-sort by Power
-    current.sort((a, b) => (b.power || 0) - (a.power || 0));
-    saveStoredLocal(current);
-    deviceSyncService.pushStateUpdate({ memberStatuses: current }, 'save_status').catch(() => {});
 
-    // Save to Firestore
-    await executeSafeFirestoreWrite(async () => {
-      const docRef = doc(db, STATUSES_COLLECTION, targetId);
-      await setDoc(docRef, updatedStatus, { merge: true });
-    }, `saveStatus(${targetId})`);
+    current.sort((a, b) => (b.power || 0) - (a.power || 0));
+    cachedStatuses = current;
+    saveStoredLocal(current);
+    statusListeners.forEach((fn) => fn(current));
+
+    await deviceSyncService.pushStateUpdate({ memberStatuses: current }, `save_status(${updatedStatus.memberName})`);
   },
 
   async deleteStatus(id: string): Promise<void> {
-    // Local optimistic update
-    const current = getStoredLocal().filter((s) => s.id !== id);
+    const current = (cachedStatuses.length > 0 ? cachedStatuses : getStoredLocal()).filter((s) => s.id !== id);
+    cachedStatuses = current;
     saveStoredLocal(current);
-    deviceSyncService.pushStateUpdate({ memberStatuses: current }, 'delete_status').catch(() => {});
+    statusListeners.forEach((fn) => fn(current));
 
-    // Remote delete
-    await executeSafeFirestoreWrite(async () => {
-      const docRef = doc(db, STATUSES_COLLECTION, id);
-      await deleteDoc(docRef);
-    }, `deleteStatus(${id})`);
+    await deviceSyncService.pushStateUpdate({ memberStatuses: current }, `delete_status(${id})`);
   },
 
   async deleteMultipleStatuses(ids: string[]): Promise<void> {
     if (!ids || ids.length === 0) return;
     const idSet = new Set(ids);
-    // Local optimistic update
-    const current = getStoredLocal().filter((s) => !idSet.has(s.id));
+    const current = (cachedStatuses.length > 0 ? cachedStatuses : getStoredLocal()).filter((s) => !idSet.has(s.id));
+    cachedStatuses = current;
     saveStoredLocal(current);
-    deviceSyncService.pushStateUpdate({ memberStatuses: current }, 'delete_multiple_statuses').catch(() => {});
+    statusListeners.forEach((fn) => fn(current));
 
-    // Remote batch delete
-    await executeSafeFirestoreWrite(async () => {
-      const batch = writeBatch(db);
-      ids.forEach((id) => {
-        const docRef = doc(db, STATUSES_COLLECTION, id);
-        batch.delete(docRef);
-      });
-      await batch.commit();
-    }, 'deleteMultipleStatuses');
+    await deviceSyncService.pushStateUpdate({ memberStatuses: current }, `delete_multiple_statuses(${ids.length})`);
   },
 
   getLocalStatusForMember(memberName?: string): MemberStatus | null {
     if (!memberName) return null;
-    const current = getStoredLocal();
+    const current = cachedStatuses.length > 0 ? cachedStatuses : getStoredLocal();
     const clean = memberName.trim().toLowerCase();
     return current.find((s) => s.memberName.trim().toLowerCase() === clean) || null;
   },
