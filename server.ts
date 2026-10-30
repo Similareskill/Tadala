@@ -158,22 +158,50 @@ function startGlobalRelayBridge() {
     relayWs.on('open', () => {
       console.log('[Server Global Relay] Connected to worldwide multi-network sync mesh');
     });
-    relayWs.on('message', (raw) => {
+    relayWs.on('message', async (raw) => {
       try {
         const rawStr = raw.toString().trim();
         if (!rawStr.startsWith('{') || !rawStr.endsWith('}')) return;
         const data = JSON.parse(rawStr);
-        if (data.event === 'message' && typeof data.message === 'string') {
-          const trimmed = data.message.trim();
-          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        if (data.event === 'message') {
+          let payloadToApply: any = null;
+          let sourceDev = 'global-peer';
+          let reason = 'global_mesh_sync';
+
+          // 1. If payload was uploaded by ntfy as an attachment (> 4KB)
+          if (data.attachment && data.attachment.url) {
             try {
-              const msg = JSON.parse(trimmed);
-              if (msg && typeof msg === 'object' && msg.type === 'GLOBAL_SYNC_STATE' && msg.payload && msg.sourceDevice !== 'server-backend') {
-                applyPayload(msg.payload, msg.sourceDevice, 'global_mesh_sync', false);
+              const attachRes = await fetch(data.attachment.url);
+              if (attachRes.ok) {
+                const attachJson: any = await attachRes.json();
+                if (attachJson && attachJson.type === 'GLOBAL_SYNC_STATE' && attachJson.payload && attachJson.sourceDevice !== 'server-backend') {
+                  payloadToApply = attachJson.payload;
+                  sourceDev = attachJson.sourceDevice || 'global-attachment';
+                  reason = attachJson.reason || 'global_attachment_sync';
+                }
               }
-            } catch {
-              // Ignore non-sync messages silently
+            } catch (err) {
+              console.warn('[Server Global Relay] Error fetching attachment:', err);
             }
+          } else if (typeof data.message === 'string') {
+            // 2. Direct inline JSON string (< 4KB)
+            const trimmed = data.message.trim();
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+              try {
+                const msg = JSON.parse(trimmed);
+                if (msg && typeof msg === 'object' && msg.type === 'GLOBAL_SYNC_STATE' && msg.payload && msg.sourceDevice !== 'server-backend') {
+                  payloadToApply = msg.payload;
+                  sourceDev = msg.sourceDevice || 'global-message';
+                  reason = msg.reason || 'global_message_sync';
+                }
+              } catch {
+                // Ignore non-sync messages
+              }
+            }
+          }
+
+          if (payloadToApply) {
+            applyPayload(payloadToApply, sourceDev, reason, false);
           }
         }
       } catch {

@@ -50,10 +50,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const currentUrl = typeof window !== 'undefined'
     ? (() => {
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const base = isLocal
-          ? 'https://ais-dev-sdmk2l6v3qcurxwvq325kd-151367570740.europe-west2.run.app'
-          : `${window.location.origin}${window.location.pathname}`;
+        // Shared public URL that works on all mobile devices, 4G/5G, and external networks without Google developer session
+        const sharedPublicBase = 'https://ais-pre-sdmk2l6v3qcurxwvq325kd-151367570740.europe-west2.run.app';
+        const isDevOrLocal =
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1' ||
+          window.location.hostname.includes('ais-dev');
+
+        const base = isDevOrLocal ? sharedPublicBase : `${window.location.origin}${window.location.pathname}`;
         try {
           const u = new URL(base);
           u.searchParams.set('room', 'tadala_fila_guild');

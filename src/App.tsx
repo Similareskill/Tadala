@@ -298,6 +298,7 @@ export default function App() {
     itemsService.seedInitialIfEmpty(INITIAL_ITEMS).catch(() => {});
 
     // 3. Firestore Listeners
+    // 3. Firestore Listeners (with automatic server fallback when Firestore encounters limits)
     const unsubItems = itemsService.subscribe(
       (firestoreItems) => {
         if (firestoreItems && firestoreItems.length > 0) {
@@ -313,28 +314,41 @@ export default function App() {
         }
       },
       (err) => {
-        console.warn('Real-time items sync notice:', err);
+        console.warn('Real-time items sync notice (hydrating from central sync server):', err);
+        deviceSyncService.fetchStateFromServer();
       }
     );
 
-    const unsubSettings = settingsService.subscribe((remoteSettings) => {
-      if (remoteSettings && remoteSettings.listName) {
-        setSettings(remoteSettings);
-        if (remoteSettings.buttonColor !== undefined) {
-          setButtonColor(remoteSettings.buttonColor);
+    const unsubSettings = settingsService.subscribe(
+      (remoteSettings) => {
+        if (remoteSettings && remoteSettings.listName) {
+          setSettings(remoteSettings);
+          if (remoteSettings.buttonColor !== undefined) {
+            setButtonColor(remoteSettings.buttonColor);
+          }
+          if (remoteSettings.divColor !== undefined) {
+            setDivColor(remoteSettings.divColor);
+          }
+          deviceSyncService.pushStateUpdate({ settings: remoteSettings }, 'firestore_settings').catch(() => {});
         }
-        if (remoteSettings.divColor !== undefined) {
-          setDivColor(remoteSettings.divColor);
-        }
-        deviceSyncService.pushStateUpdate({ settings: remoteSettings }, 'firestore_settings').catch(() => {});
+      },
+      (err) => {
+        console.warn('Real-time settings sync notice (hydrating from central sync server):', err);
+        deviceSyncService.fetchStateFromServer();
       }
-    });
+    );
 
-    const unsubHistory = historyService.subscribe((remoteHistory) => {
-      if (remoteHistory && remoteHistory.length > 0) {
-        setHistory(remoteHistory);
+    const unsubHistory = historyService.subscribe(
+      (remoteHistory) => {
+        if (remoteHistory && remoteHistory.length > 0) {
+          setHistory(remoteHistory);
+        }
+      },
+      (err) => {
+        console.warn('Real-time history sync notice (hydrating from central sync server):', err);
+        deviceSyncService.fetchStateFromServer();
       }
-    });
+    );
 
     return () => {
       unsubStatus();
