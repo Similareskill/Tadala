@@ -42,8 +42,6 @@ import {
   useTheme,
   TEXT_COLOR_PRESETS,
   BACKGROUND_PRESET_OPTIONS,
-  BUTTON_COLOR_PRESETS,
-  DIV_COLOR_PRESETS,
   ThemeBackgroundConfig,
   BackgroundType,
 } from '../context/ThemeContext';
@@ -87,18 +85,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTheme,
     activeThemeId,
     currentTextColor,
-    currentButtonColor,
-    currentDivColor,
     customBgMain,
     customBgCard,
     applyThemePreset,
     setTextColor,
-    setButtonColor,
-    setDivColor,
-    getButtonGradient,
-    getButtonTextColor,
-    getDivBorderColor,
-    getDivTextColor,
     resetAllColors,
     backgroundConfig,
     setBackgroundConfig,
@@ -1377,118 +1367,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Save className="w-3.5 h-3.5" />
               <span>{savingThemeBg ? 'Sincronizando...' : 'Salvar Tema & Fundo na Nuvem'}</span>
             </button>
-          </div>
-        </div>
-
-        {/* Button Color Presets across all pages */}
-        <div className="pt-3 border-t border-[#f1f5f9] dark:border-[#222b3e] space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#131b2e] dark:text-white flex items-center gap-1.5 font-cinzel">
-              <span>🔘 Cor de Todos os Botões (Todas as Páginas):</span>
-            </span>
-            <span className="text-[10px] text-[#64748b] dark:text-[#94a3b8] font-mono">
-              {currentButtonColor ? `Ativa: ${currentButtonColor}` : 'Padrão (Night Crows Ouro)'}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {BUTTON_COLOR_PRESETS.map((preset) => {
-              const isSelected =
-                (!currentButtonColor && preset.id === 'gold') ||
-                (currentButtonColor.toLowerCase() === preset.color.toLowerCase());
-
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    playHapticSound('click');
-                    setButtonColor(preset.color);
-                  }}
-                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
-                    isSelected
-                      ? 'ring-2 ring-[#c5a059] border-[#c5a059] bg-[#c5a059]/15 shadow-xs'
-                      : 'border-[#e2e8f0] dark:border-[#222b3e] bg-[#f8fafc] dark:bg-[#161c2a] hover:border-[#cbd5e1]'
-                  }`}
-                >
-                  <div
-                    className="w-5 h-5 rounded-lg shrink-0 border border-black/20 shadow-2xs"
-                    style={{ background: preset.gradient }}
-                  />
-                  <span className="text-[11px] font-bold truncate text-[#131b2e] dark:text-white">
-                    {preset.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="color"
-              value={currentButtonColor || '#c5a059'}
-              onChange={(e) => setButtonColor(e.target.value)}
-              className="w-7 h-7 rounded-lg border border-[#cbd5e1] cursor-pointer p-0.5"
-              title="Escolher qualquer cor para os botões"
-            />
-            <span className="text-[11px] text-[#64748b] dark:text-[#94a3b8]">
-              Seletor livre de cor para todos os botões de todas as páginas
-            </span>
-          </div>
-        </div>
-
-        {/* Div / Card / Panel Color Presets across all pages */}
-        <div className="pt-3 border-t border-[#f1f5f9] dark:border-[#222b3e] space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#131b2e] dark:text-white flex items-center gap-1.5 font-cinzel">
-              <span>🔲 Cor de Todas as Divs & Cards (Todas as Páginas):</span>
-            </span>
-            <span className="text-[10px] text-[#64748b] dark:text-[#94a3b8] font-mono">
-              {currentDivColor ? `Ativa: ${currentDivColor}` : 'Padrão (Night Crows Gótico)'}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {DIV_COLOR_PRESETS.map((preset) => {
-              const isSelected =
-                (!currentDivColor && preset.id === 'night-crows') ||
-                (currentDivColor.toLowerCase() === preset.color.toLowerCase());
-
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    playHapticSound('click');
-                    setDivColor(preset.color);
-                  }}
-                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
-                    isSelected
-                      ? 'ring-2 ring-[#c5a059] border-[#c5a059] bg-[#c5a059]/15 shadow-xs'
-                      : 'border-[#e2e8f0] dark:border-[#222b3e] bg-[#f8fafc] dark:bg-[#161c2a] hover:border-[#cbd5e1]'
-                  }`}
-                >
-                  <div
-                    className="w-5 h-5 rounded-lg shrink-0 border shadow-2xs"
-                    style={{ backgroundColor: preset.color, borderColor: preset.borderColor }}
-                  />
-                  <span className="text-[11px] font-bold truncate text-[#131b2e] dark:text-white">
-                    {preset.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="color"
-              value={currentDivColor || '#0e131e'}
-              onChange={(e) => setDivColor(e.target.value)}
-              className="w-7 h-7 rounded-lg border border-[#cbd5e1] cursor-pointer p-0.5"
-              title="Escolher qualquer cor para as divs e cards"
-            />
-            <span className="text-[11px] text-[#64748b] dark:text-[#94a3b8]">
-              Seletor livre de cor para todas as divs e cards de todas as páginas
-            </span>
           </div>
         </div>
 

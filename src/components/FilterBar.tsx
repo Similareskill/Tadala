@@ -1,6 +1,5 @@
 import React from 'react';
 import { Search } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
 import { ItemStatus } from '../types/shopping';
 
 export type FilterStatus = 'todos' | 'pendente' | 'no_carrinho';
@@ -30,17 +29,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   categories,
   counts,
 }) => {
-  const { currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
-
-  const getActiveStyle = (isActive: boolean): React.CSSProperties | undefined => {
-    if (!isActive || !currentButtonColor) return undefined;
-    return {
-      background: getButtonGradient(currentButtonColor),
-      color: getButtonTextColor(currentButtonColor),
-      borderColor: `${currentButtonColor}aa`,
-    };
-  };
-
   return (
     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
       {/* Search Input within list */}
@@ -67,44 +55,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
       {/* Filter Tabs & Category Selector */}
       <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-        <div className="flex items-center bg-[#0c1018]/90 p-1 rounded-xl border border-[#222c40] shrink-0 gap-1">
+        <div className="flex items-center bg-[#0c1018]/90 p-1 rounded-xl border border-[#222c40] shrink-0">
           <button
             type="button"
             onClick={() => onStatusFilterChange('todos')}
-            style={getActiveStyle(statusFilter === 'todos')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-cinzel cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all font-cinzel cursor-pointer ${
               statusFilter === 'todos'
                 ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] shadow-sm'
                 : 'text-[#8e9cb3] hover:text-[#f3e8c7] hover:bg-[#151c2a]'
             }`}
           >
             Todos ({counts.total})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onStatusFilterChange('pendente')}
-            style={getActiveStyle(statusFilter === 'pendente')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-cinzel cursor-pointer ${
-              statusFilter === 'pendente'
-                ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] shadow-sm'
-                : 'text-[#8e9cb3] hover:text-[#f3e8c7] hover:bg-[#151c2a]'
-            }`}
-          >
-            Pendentes ({counts.pending})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onStatusFilterChange('no_carrinho')}
-            style={getActiveStyle(statusFilter === 'no_carrinho')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-cinzel cursor-pointer ${
-              statusFilter === 'no_carrinho'
-                ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] text-[#080a0f] shadow-sm'
-                : 'text-[#8e9cb3] hover:text-[#f3e8c7] hover:bg-[#151c2a]'
-            }`}
-          >
-            Coletados ({counts.cart})
           </button>
         </div>
 

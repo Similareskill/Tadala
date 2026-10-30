@@ -12,7 +12,6 @@ import {
   Lock,
 } from 'lucide-react';
 import { AdminAccount } from '../types/shopping';
-import { useTheme } from '../context/ThemeContext';
 import { ThemeToggleButton } from './ThemeToggleButton';
 import nightCrowsEmblem from '../assets/images/night_crows_emblem_1792563012471.jpg';
 
@@ -54,8 +53,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   syncStatus = 'connected',
   latencyMs = 2,
 }) => {
-  const { currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
-
   const userInitials = user?.displayName
     ? user.displayName.slice(0, 2).toUpperCase()
     : user?.email
@@ -146,18 +143,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         {/* Novo Item Button */}
         <button
           onClick={onOpenNewItem}
-          style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
           className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-150 shadow-md cursor-pointer whitespace-nowrap ${
             isAdmin
               ? 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] font-cinzel font-bold shadow-black/50'
-              : 'bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] font-cinzel font-bold shadow-black/50'
+              : 'bg-[#0f131d] hover:bg-[#151c29] text-[#8e9cb3] border border-[#222a3d]'
           }`}
           title={isAdmin ? 'Adicionar novo item de craft' : 'Apenas o Administrador pode adicionar itens. Clique para fazer login.'}
         >
           {isAdmin ? (
             <Plus className="w-4 h-4 stroke-[2.5]" />
           ) : (
-            <Lock className="w-3.5 h-3.5 stroke-[2.5]" style={currentButtonColor ? { color: getButtonTextColor(currentButtonColor) } : undefined} />
+            <Lock className="w-3.5 h-3.5 text-[#c5a059] stroke-[2.5]" />
           )}
           <span className="hidden sm:inline font-cinzel text-xs tracking-wider">Novo Item</span>
         </button>

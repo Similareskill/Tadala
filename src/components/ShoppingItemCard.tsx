@@ -19,7 +19,6 @@ import {
 import { ShoppingItem } from '../types/shopping';
 import { playHapticSound } from '../utils/helpers';
 import { PRESET_ITEM_NAMES } from '../data/initialData';
-import { useTheme } from '../context/ThemeContext';
 
 interface ShoppingItemCardProps {
   item: ShoppingItem;
@@ -68,7 +67,6 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
   isAdmin = false,
   onRequireAdmin,
 }) => {
-  const { currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
   const [imgError, setImgError] = useState(false);
   const [showNameDropdown, setShowNameDropdown] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -667,7 +665,6 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                       <button
                         type="submit"
                         disabled={!newCustomName.trim()}
-                        style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor) } : undefined}
                         className="px-2.5 py-1.5 bg-[#2a14b4] text-white rounded-lg text-xs font-semibold hover:bg-[#1f0e8a] disabled:opacity-50 transition-colors cursor-pointer shrink-0"
                       >
                         + Adicionar
@@ -742,7 +739,6 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
               return (
                 <div
                   key={nameOpt}
-                  style={isActive && currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
                   className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg transition-all ${
                     isActive
                       ? 'bg-[#2a14b4] text-white font-semibold shadow-2xs'
@@ -836,7 +832,6 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                 />
                 <button
                   type="submit"
-                  style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor) } : undefined}
                   className="px-1.5 py-0.5 bg-[#2a14b4] text-white rounded-md text-[11px] font-bold cursor-pointer"
                 >
                   Salvar
@@ -856,7 +851,6 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
                   e.stopPropagation();
                   setIsAddingName(true);
                 }}
-                style={currentButtonColor ? { borderColor: `${currentButtonColor}88`, color: currentButtonColor } : undefined}
                 className="inline-flex items-center gap-0.5 text-[11px] text-[#2a14b4] hover:text-[#1e0e80] bg-[#faf8ff] hover:bg-[#eaedff] px-2 py-0.5 rounded-lg border border-dashed border-[#c7d2fe] font-semibold transition-colors cursor-pointer"
                 title="Adicionar outro nome à lista deste item"
               >
@@ -907,14 +901,11 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
       {/* Right zone: Stepper + Notes Button + Trash Button */}
       <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#f1f5f9]">
         {/* Stepper (- quantity +) */}
-        <div
-          style={currentButtonColor ? { borderColor: `${currentButtonColor}55` } : undefined}
-          className="flex items-center bg-[#f8fafc] dark:bg-[#090d15] border border-[#e2e8f0] dark:border-[#222a3d] rounded-xl p-0.5"
-        >
+        <div className="flex items-center bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-0.5">
           <button
             type="button"
             onClick={handleDecrease}
-            className="w-9 h-9 flex items-center justify-center text-[#475569] dark:text-[#8e9cb3] hover:bg-[#e2e8f0] dark:hover:bg-[#151c2a] active:scale-95 rounded-lg transition-all cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center text-[#475569] hover:bg-[#e2e8f0] active:scale-95 rounded-lg transition-all cursor-pointer"
             aria-label="Diminuir quantidade"
           >
             <Minus className="w-4 h-4" />
@@ -929,8 +920,7 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
               }
               onOpenEdit(item);
             }}
-            style={currentButtonColor ? { color: currentButtonColor } : undefined}
-            className="px-2.5 min-w-[42px] text-center font-bold text-xs text-[#131b2e] dark:text-[#f3e8c7] hover:text-[#2a14b4] dark:hover:text-[#dfb96c] cursor-pointer tabular-nums flex flex-col items-center justify-center"
+            className="px-2.5 min-w-[42px] text-center font-bold text-xs text-[#131b2e] hover:text-[#2a14b4] cursor-pointer tabular-nums flex flex-col items-center justify-center"
             title="Clique para editar quantidade ou unidade"
           >
             <span>{item.quantity}</span>
@@ -940,8 +930,7 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
           <button
             type="button"
             onClick={handleIncrease}
-            style={currentButtonColor ? { color: currentButtonColor } : undefined}
-            className="w-9 h-9 flex items-center justify-center text-[#059669] hover:bg-[#ecfdf5] dark:hover:bg-[#151c2a] active:scale-95 rounded-lg transition-all cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center text-[#059669] hover:bg-[#ecfdf5] active:scale-95 rounded-lg transition-all cursor-pointer"
             aria-label="Aumentar quantidade"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
