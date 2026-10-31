@@ -48,7 +48,7 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
-  const { backgroundStyle, applyThemePreset, saveBackgroundToCurrentTheme, activeThemeId } = useTheme();
+  const { backgroundStyle, applyThemePreset, saveBackgroundToCurrentTheme, activeThemeId, currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
 
   // Navigation tab state
   const [currentTab, setCurrentTab] = useState<TabType>('lista');
@@ -1330,6 +1330,7 @@ export default function App() {
                         setItemToEdit(null);
                         setIsItemModalOpen(true);
                       }}
+                      style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
                       className="px-5 py-2.5 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] rounded-xl text-xs font-bold font-cinzel cursor-pointer shadow-md shadow-black/50 transition-all active:scale-95"
                     >
                       + Novo Item de Craft

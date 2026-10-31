@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, CheckCheck, Plus } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 interface BulkActionToolbarProps {
   allSelected: boolean;
@@ -27,6 +28,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   isAdmin = false,
   onRequireAdmin,
 }) => {
+  const { currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
   return (
     <div className="flex flex-wrap items-center justify-between text-xs text-[#8e9cb3] px-1 py-1 gap-2">
       {/* Selection info */}
@@ -62,6 +64,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
               }
               onAddNewItem();
             }}
+            style={currentButtonColor ? { background: getButtonGradient(currentButtonColor), color: getButtonTextColor(currentButtonColor), borderColor: `${currentButtonColor}aa` } : undefined}
             className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] rounded-xl font-bold font-cinzel text-xs shadow-md shadow-black/40 transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />

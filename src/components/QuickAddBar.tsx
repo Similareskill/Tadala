@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Zap, Minus, Plus, Lock, KeyRound } from 'lucide-react';
 import { playHapticSound } from '../utils/helpers';
 import { PRESET_ITEM_NAMES } from '../data/initialData';
+import { useTheme } from '../context/ThemeContext';
 
 interface QuickAddBarProps {
   categories: string[];
@@ -21,6 +22,15 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
   isAdmin = false,
   onRequireAdmin,
 }) => {
+  const { currentButtonColor, getButtonGradient, getButtonTextColor } = useTheme();
+  const btnStyle: React.CSSProperties | undefined = currentButtonColor
+    ? {
+        background: getButtonGradient(currentButtonColor),
+        color: getButtonTextColor(currentButtonColor),
+        borderColor: `${currentButtonColor}aa`,
+      }
+    : undefined;
+
   const [name, setName] = useState('');
   const [brandOrPreference, setBrandOrPreference] = useState('');
   const [category, setCategory] = useState(categories[0] || 'Comum');
@@ -46,6 +56,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
         <button
           type="button"
           onClick={() => onRequireAdmin?.('adicionar itens à lista')}
+          style={btnStyle}
           className="self-stretch sm:self-auto px-4 py-2 bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] font-bold font-cinzel rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-black/40 transition-all cursor-pointer whitespace-nowrap"
         >
           <KeyRound className="w-3.5 h-3.5" />
@@ -200,6 +211,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
       {/* Submit Button */}
       <button
         type="submit"
+        style={btnStyle}
         className="w-full sm:w-auto bg-gradient-to-r from-[#c5a059] to-[#9e7d38] hover:from-[#dfb96c] hover:to-[#b38e44] text-[#080a0f] px-5 py-2.5 h-10 rounded-xl text-xs sm:text-sm font-bold font-cinzel transition-all active:scale-[0.98] shrink-0 cursor-pointer shadow-md shadow-black/50 flex items-center justify-center gap-1.5"
       >
         <Plus className="w-4 h-4 shrink-0" />
